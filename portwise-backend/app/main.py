@@ -1,6 +1,12 @@
+import os
 from fastapi import FastAPI
 from app.schemas import CalculationRequest, CalculationResponse, CalculationBreakdown
 from app.calculator import calculate_landed_cost
+
+PORT = int(os.getenv("PORT", 8000))
+CISS_RATE = float(os.getenv("DEFAULT_CISS_RATE", 1.0))
+ETLS_RATE = float(os.getenv("DEFAULT_ETLS_RATE", 0.5))
+VAT_RATE = float(os.getenv("DEFAULT_VAT_RATE", 7.5))
 
 app = FastAPI(
     title="PortWise Landed-Cost API",
