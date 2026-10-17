@@ -1,0 +1,81 @@
+@import "./tokens.css";
+@import "./print.css";
+
+/* Loading dots inside buttons. */
+.pw-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: pw-dot 900ms var(--ease-out) infinite;
+}
+@keyframes pw-dot {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* Skeleton shimmer, slow and low-contrast. */
+.pw-shimmer {
+  background-image: linear-gradient(90deg, transparent 0, rgb(255 255 255 / 0.6) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: pw-shimmer 1.4s linear infinite;
+}
+@keyframes pw-shimmer {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+/* Corrugated container wall: vertical ridges laid over the cargo fill. */
+.pw-ridges {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0) 0,
+    rgb(255 255 255 / 0) 7px,
+    rgb(11 37 69 / 0.16) 7px,
+    rgb(11 37 69 / 0.16) 8px,
+    rgb(255 255 255 / 0.14) 8px,
+    rgb(255 255 255 / 0.14) 9px,
+    rgb(255 255 255 / 0) 9px,
+    rgb(255 255 255 / 0) 12px
+  );
+}
+.pw-ridges-empty {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 8px,
+    rgb(11 37 69 / 0.09) 8px,
+    rgb(11 37 69 / 0.09) 9px,
+    transparent 9px,
+    transparent 12px
+  );
+}
+
+/* Hide number-input spinners if any slip through. */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ---- Motion (guide §4.5). One orchestrated reveal; everything else stays quiet.
+   The reduced-motion rule in tokens.css shortens all of these to an instant change. ---- */
+@keyframes pw-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pw-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pw-load {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+.pw-rise { animation: pw-rise 320ms var(--ease-out) 80ms both; }
+.pw-row { animation: pw-rise 200ms var(--ease-out) both; }
+.pw-load { animation: pw-load 480ms var(--ease-out) 160ms both; }
+.pw-enter { animation: pw-fade 200ms var(--ease-out) both; }
+.pw-toast { animation: pw-rise 200ms var(--ease-out) both; }

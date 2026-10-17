@@ -1,0 +1,42 @@
+/* Print / Save as PDF: a one-page quote sheet for clearing agents.
+   Only the docket prints; the form, navigation and actions are hidden. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print,
+  header[data-site-header],
+  footer[data-site-footer],
+  [data-hero-band] {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  [data-workspace] {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  [data-docket] {
+    box-shadow: none !important;
+    border: 1px solid #b9c6d8 !important;
+    break-inside: avoid;
+  }
+  [data-docket] * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  [data-docket] details {
+    display: block;
+  }
+  [data-docket] details > *:not(summary) {
+    display: block !important;
+  }
+}

@@ -5,6 +5,7 @@ PortWise is a backend service for calculating landed import costs in Nigeria, in
 ## Project structure
 
 - `portwise-backend/` - FastAPI application and backend logic
+- `portwise-frontend/` - React calculator UI (see `portwise-frontend/README.md`)
 - `Dockerfile` - container setup for running the app
 - `render.yaml` - deployment configuration for Render
 
@@ -35,3 +36,17 @@ Then open:
 ## Notes
 
 This project currently provides a calculation preview flow for importing goods and estimating total landed cost using default assumptions for FX rate, duty rate, and levy values.
+
+
+## Frontend
+
+The calculator UI lives in `portwise-frontend/` (Vite, React and TypeScript). Until the Main API is live, it runs on a built-in mock API labelled "Demo data". The mock reproduces the Backend document's worked examples exactly.
+
+```bash
+cd portwise-frontend
+npm install
+cp .env.example .env
+npm run dev   # http://localhost:5173
+```
+
+See `portwise-frontend/README.md` for the API contract the UI expects, demo mode and deployment.
