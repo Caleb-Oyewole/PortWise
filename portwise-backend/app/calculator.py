@@ -78,3 +78,24 @@ def calculate_landed_cost_exact(
         "total_landed_cost_ngn": round_currency(total_landed_cost),
         "charges": charges
     }
+    
+# Backward compatibility alias to resolve ImportError
+def calculate_landed_cost(
+    item_value: float,
+    fx_rate: float,
+    duty_rate_pct: float,
+    category_levy_rate_pct: float = 0.0,
+    freight_ngn: float = 0.0,
+    insurance_ngn: float = 0.0,
+    vat_rate_pct: float = 7.5
+) -> Dict[str, Any]:
+    """Legacy wrapper mapping old signature to exact decimal calculator."""
+    fob = item_value * fx_rate
+    return calculate_landed_cost_exact(
+        fob_value=fob,
+        freight_insurance=freight_ngn + insurance_ngn,
+        duty_rate_pct=duty_rate_pct,
+        regime="legacy",
+        etls_applicable=True,
+        vat_rate_pct=vat_rate_pct
+    )
