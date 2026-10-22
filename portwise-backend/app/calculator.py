@@ -1,59 +1,80 @@
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Any
 
-def calculate_landed_cost(
-    item_value: float,
-    fx_rate: float,
+def round_currency(value: Decimal) -> float:
+    """Helper to round half-up to 2 decimal places and return as float for JSON."""
+    return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+def calculate_landed_cost_exact(
+    fob_value: float,
+    freight_insurance: float,
     duty_rate_pct: float,
-    category_levy_rate_pct: float = 0.0,
-    freight_ngn: float = 0.0,
-    insurance_ngn: float = 0.0,
+    regime: str = "legacy",  # "legacy" or "fob4"
+    etls_applicable: bool = True,
     vat_rate_pct: float = 7.5
 ) -> Dict[str, Any]:
     """
-    Calculates import duty, statutory levies (CISS 1%, ETLS 0.5%), category levies,
-    VAT, and total landed cost in NGN.
+    Calculates import duty, levies, VAT, and total landed cost using exact Decimal arithmetic.
     """
-    # 1. Foreign Currency Conversion & CIF Calculation
-    item_value_ngn = item_value * fx_rate
-    cif_value_ngn = item_value_ngn + freight_ngn + insurance_ngn
+    fob = Decimal(str(fob_value))
+    fi = Decimal(str(freight_insurance))
+    duty_rate = Decimal(str(duty_rate_pct)) / Decimal("100")
+    vat_rate = Decimal(str(vat_rate_pct)) / Decimal("100")
 
-    # 2. Duty Calculation
-    duty_amount = cif_value_ngn * (duty_rate_pct / 100.0)
+    # 1. CIF Value
+    cif = fob + fi
 
-    # 3. Statutory & Category Levies
-    ciss_rate = 1.0
-    etls_rate = 0.5
-    total_levy_rate = ciss_rate + etls_rate + category_levy_rate_pct
+    # 2. Import Duty
+    duty_amount = cif * duty_rate
 
-    ciss_amount = cif_value_ngn * (ciss_rate / 100.0)
-    etls_amount = cif_value_ngn * (etls_rate / 100.0)
-    category_levy_amount = cif_value_ngn * (category_levy_rate_pct / 100.0)
-    total_levy_amount = ciss_amount + etls_amount + category_levy_amount
+    # 3. Levies & Surcharges based on Regime
+    charges = []
+    charges.append({"name": "CIF Value", "base": round_currency(cif), "rate_pct": 0.0, "amount_ngn": round_currency(cif)})
+    charges.append({"name": "Import Duty", "base": round_currency(cif), "rate_pct": float(duty_rate_pct), "amount_ngn": round_currency(duty_amount)})
 
-    # 4. Taxable Base for VAT = CIF + Duty + Levies
-    vat_taxable_base = cif_value_ngn + duty_amount + total_levy_amount
-    vat_amount = vat_taxable_base * (vat_rate_pct / 100.0)
+    total_levies = Decimal("0.00")
 
-    # 5. Total Landed Cost
-    total_landed_cost = cif_value_ngn + duty_amount + total_levy_amount + vat_amount
+    if regime.lower() == "legacy":
+        # Surcharge (7% of duty)
+        surcharge_rate = Decimal("7.0")
+        surcharge_amount = duty_amount * (surcharge_rate / Decimal("100"))
+        charges.append({"name": "Surcharge", "base": round_currency(duty_amount), "rate_pct": float(surcharge_rate), "amount_ngn": round_currency(surcharge_amount)})
+        total_levies += surcharge_amount
+
+        # CISS (1% of FOB)
+        ciss_rate = Decimal("1.0")
+        ciss_amount = fob * (ciss_rate / Decimal("100"))
+        charges.append({"name": "CISS", "base": round_currency(fob), "rate_pct": float(ciss_rate), "amount_ngn": round_currency(ciss_amount)})
+        total_levies += ciss_amount
+
+    elif regime.lower() == "fob4":
+        # FOB charge (4% of FOB) - replaces CISS & surcharge
+        fob_charge_rate = Decimal("4.0")
+        fob_charge_amount = fob * (fob_charge_rate / Decimal("100"))
+        charges.append({"name": "FOB Charge", "base": round_currency(fob), "rate_pct": float(fob_charge_rate), "amount_ngn": round_currency(fob_charge_amount)})
+        total_levies += fob_charge_amount
+
+    # ETLS (0.5% of CIF) - on by default, switchable via config flag
+    etls_amount = Decimal("0.00")
+    if etls_applicable:
+        etls_rate = Decimal("0.5")
+        etls_amount = cif * (etls_rate / Decimal("100"))
+        charges.append({"name": "ETLS", "base": round_currency(cif), "rate_pct": float(etls_rate), "amount_ngn": round_currency(etls_amount)})
+        total_levies += etls_amount
+
+    # 4. VAT Base = CIF + Duty + Levies
+    vat_base = cif + duty_amount + total_levies
+    vat_amount = vat_base * vat_rate
+
+    total_charges = duty_amount + total_levies + vat_amount
+    total_landed_cost = cif + total_charges
 
     return {
-        "item_value_original": round(item_value, 2),
-        "fx_rate_used": round(fx_rate, 2),
-        "cif_value_ngn": round(cif_value_ngn, 2),
-        "duty_rate_pct": round(duty_rate_pct, 2),
-        "duty_amount_ngn": round(duty_amount, 2),
-        "levies": {
-            "ciss_rate_pct": round(ciss_rate, 2),
-            "ciss_amount_ngn": round(ciss_amount, 2),
-            "etls_rate_pct": round(etls_rate, 2),
-            "etls_amount_ngn": round(etls_amount, 2),
-            "category_levy_rate_pct": round(category_levy_rate_pct, 2),
-            "category_levy_amount_ngn": round(category_levy_amount, 2),
-            "total_levy_rate_pct": round(total_levy_rate, 2),
-            "total_levy_amount_ngn": round(total_levy_amount, 2),
-        },
-        "vat_rate_pct": round(vat_rate_pct, 2),
-        "vat_amount_ngn": round(vat_amount, 2),
-        "total_landed_cost_ngn": round(total_landed_cost, 2),
+        "regime": regime.lower(),
+        "cif_value_ngn": round_currency(cif),
+        "duty_amount_ngn": round_currency(duty_amount),
+        "total_levies_ngn": round_currency(total_levies),
+        "vat_amount_ngn": round_currency(vat_amount),
+        "total_landed_cost_ngn": round_currency(total_landed_cost),
+        "charges": charges
     }
