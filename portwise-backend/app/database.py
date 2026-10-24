@@ -13,7 +13,8 @@ else:
     # Ensure explicit psycopg2 driver usage for PostgreSQL
     if DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    engine = create_engine(DATABASE_URL)
+    # pool_pre_ping drops connections the managed database closed while the app was asleep
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
