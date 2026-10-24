@@ -46,3 +46,13 @@ class MultiCalculateRequest(BaseModel):
     total_freight_insurance_ngn: float = Field(default=0.0, ge=0, description="Total shared freight and insurance in NGN")
     regime: str = Field(default="legacy", description="Levy regime: 'legacy' or 'fob4'")
     etls_applicable: bool = Field(default=True, description="Apply 0.5% ETLS levy")
+    
+class CalculateRequest(BaseModel):
+    hs_code: str = Field(..., description="HS Code or category identifier")
+    fob_value: float = Field(..., gt=0, description="Free on Board item value")
+    currency: str = Field(default="USD", description="Currency code")
+    freight_insurance: float = Field(default=0.0, ge=0, description="Shared freight and insurance in NGN")
+    regime: str = Field(default="legacy", description="Levy regime: 'legacy' or 'fob4'")
+    etls_applicable: bool = Field(default=True, description="Apply 0.5% ETLS levy")
+    origin_country: str = Field(default="US", description="Origin country code")
+    fx_rate_override: Optional[float] = Field(default=None, gt=0, description="Optional custom exchange rate override")
