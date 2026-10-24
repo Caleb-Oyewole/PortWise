@@ -149,3 +149,20 @@ def test_rate_limited_response_still_carries_cors_headers(client, monkeypatch):
     client.post("/api/v1/calculate", json=body, headers={"Origin": "https://web.example"})
     r = client.post("/api/v1/calculate", json=body, headers={"Origin": "https://web.example"})
     assert r.status_code == 429 and r.headers.get("access-control-allow-origin")
+
+
+def test_fx_provider_errors_never_contain_the_api_key(monkeypatch):
+    import requests
+
+    from app import fx_provider
+
+    monkeypatch.setenv("FX_API_KEY", "SECRET-KEY-123")
+
+    def boom(url, timeout):
+        raise requests.ConnectionError(f"Max retries exceeded with url: {url}")
+
+    monkeypatch.setattr(fx_provider.requests, "get", boom)
+    with pytest.raises(fx_provider.FxProviderError) as info:
+        fx_provider.fetch_quotes(["USD"])
+    assert "SECRET-KEY-123" not in str(info.value)
+    assert info.value.__cause__ is None

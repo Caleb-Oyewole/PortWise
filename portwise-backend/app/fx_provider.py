@@ -48,7 +48,11 @@ def fetch_quotes(currencies: Iterable[str], timeout: float = 8.0) -> List[Quote]
         response.raise_for_status()
         body = response.json()
     except (requests.RequestException, ValueError) as exc:
-        raise FxProviderError(f"Could not reach the exchange-rate provider: {exc}") from exc
+        # The keyed URL contains FX_API_KEY, and requests puts the URL in its messages:
+        # never pass exception text on to callers, logs or the admin UI.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        detail = f"HTTP {status}" if status else type(exc).__name__
+        raise FxProviderError(f"Could not reach the exchange-rate provider ({detail}).") from None
     rates = body.get("conversion_rates") or body.get("rates") or {}
     if body.get("result") != "success" or "NGN" not in rates:
         raise FxProviderError(f"The exchange-rate provider returned no NGN rate ({body.get('error-type', 'unknown error')}).")
@@ -139,7 +143,10 @@ def start_background_refresh() -> None:
         return
     if _thread and _thread.is_alive():
         return
-    hours = float(os.getenv("FX_REFRESH_HOURS", "6"))
+    try:
+        hours = max(0.25, float(os.getenv("FX_REFRESH_HOURS", "6")))  # never a tight loop against the provider
+    except ValueError:
+        hours = 6.0
     _stop.clear()
     _thread = threading.Thread(target=_loop, args=(hours,), name="fx-refresh", daemon=True)
     _thread.start()
