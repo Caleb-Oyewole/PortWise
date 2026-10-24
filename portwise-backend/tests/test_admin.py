@@ -143,3 +143,18 @@ def test_overview(client, auth):
     assert body["tariffs"]["in_force"] >= 5
     assert "USD" in body["fx"]["placeholder"]
     assert body["levy"]["active_regime"] == "both"
+
+
+def test_shipped_catalog_imports_cleanly(client, db):
+    from app.admin.routes import run_import
+    from app.seed import CATALOG_CSV
+
+    with open(CATALOG_CSV, encoding="utf8") as f:
+        report = run_import(db, f.read(), dry_run=False, admin_email="test")
+    # 3304.99 and 8437.10 are also in the sample seed, so they arrive as new rate versions.
+    assert report["counts"] == {"new_code": 30, "new_rate": 2}
+    phones = client.get("/api/v1/hs-codes").json()
+    assert {"Phones and electronics", "Vehicle spare parts"} <= {c["name"] for c in phones["categories"]}
+    calc = client.post("/api/v1/calculate", json={"hs_code": "8517.13", "fob_value": 3000000,
+                                                  "currency": "NGN", "freight_insurance": 450000}).json()
+    assert calc["tariff"]["duty_rate_pct"] == 10.0 and calc["tariff"]["source_ref"].startswith("ECOWAS CET")

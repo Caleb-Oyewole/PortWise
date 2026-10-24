@@ -32,6 +32,26 @@ def init_database() -> None:
         upgrade(engine)
     if _flag("AUTO_SEED", DATABASE_URL.startswith("sqlite")):
         seed_database()
+    if _flag("SEED_CATALOG", DATABASE_URL.startswith("sqlite")):
+        seed_catalog()
+
+
+CATALOG_CSV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "tariffs_2026.csv")
+
+
+def seed_catalog() -> None:
+    """Load the researched tariff catalog (data/tariffs_2026.csv); existing identical rows are skipped."""
+    if not os.path.exists(CATALOG_CSV):
+        return
+    from app.admin.routes import run_import
+
+    db = SessionLocal()
+    try:
+        with open(CATALOG_CSV, encoding="utf8") as f:
+            report = run_import(db, f.read(), dry_run=False, admin_email="catalog seed")
+        log.info("Catalog seed: %s", report["counts"])
+    finally:
+        db.close()
 
 
 def seed_database():
