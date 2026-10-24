@@ -1,27 +1,22 @@
-# Use official Python lightweight image
+# PortWise API: FastAPI on uvicorn, running as an unprivileged user.
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy dependencies list and install
+# Every dependency ships a binary wheel, so no compiler is needed in the image.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Copy application source code
 COPY . .
+RUN useradd --system --uid 10001 --home /app portwise && chown -R portwise /app
+USER portwise
 
-# Expose default port (Render and Rumpty dynamically bind to PORT)
+# Rumpty sets $PORT. --proxy-headers lets uvicorn see the client scheme behind the proxy;
+# --no-server-header stops it advertising its name and version.
 EXPOSE 8000
-
-# Run uvicorn server binding to 0.0.0.0 and dynamic PORT
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*' --no-server-header"]

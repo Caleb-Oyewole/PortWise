@@ -1,8 +1,7 @@
-fastapi>=0.110.0
-uvicorn[standard]>=0.28.0
-gunicorn>=21.2.0
-pydantic>=2.6.0
-sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.0
-psycopg[binary]>=3.1.0
-requests>=2.31.0
+# Exact versions so builds are reproducible. Update deliberately (pip-audit before bumping).
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+sqlalchemy==2.1.6
+psycopg2-binary==2.9.13
+requests==2.34.2

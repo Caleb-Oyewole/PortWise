@@ -43,7 +43,8 @@ app = FastAPI(
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
 app.include_router(catalog.router)
-app.include_router(admin_router)
+# Admin endpoints work as before but are left out of the public /docs.
+app.include_router(admin_router, include_in_schema=False)
 
 
 def _cors_origins() -> list[str]:
