@@ -302,3 +302,30 @@ def test_cors_preflight_allows_browser_clients(client):
     )
     assert r.status_code == 200
     assert r.headers["access-control-allow-origin"] in ("*", "https://portwise-web.example")
+
+
+def test_readiness_checks_the_database(client):
+    r = client.get("/health/ready")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ready" and body["database"] == "sqlite" and body["tariff_rows"] >= 5
+
+
+def test_database_url_normalisation():
+    from app.database import normalize_database_url
+
+    assert normalize_database_url("postgres://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("postgresql://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("postgresql+psycopg2://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("sqlite:///./x.db") == "sqlite:///./x.db"
+
+
+def test_sqlite_falls_back_to_temp_dir_when_app_folder_is_read_only(monkeypatch):
+    import tempfile
+
+    from app import database
+
+    monkeypatch.setattr(database.os, "access", lambda path, mode: False)
+    assert database._default_sqlite_url().startswith("sqlite:///" + tempfile.gettempdir())
+    monkeypatch.setattr(database.os, "access", lambda path, mode: True)
+    assert database._default_sqlite_url() == "sqlite:///./portwise.db"

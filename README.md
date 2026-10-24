@@ -8,7 +8,7 @@ PortWise turns a supplier's invoice into an itemized **landed cost in naira** (c
 
 **Built for Devcenter Hacktober 2026 · Hosted on Rumpty Cloud**
 
-[Live API](https://portwise.rumptycloud.app) · [API docs](https://portwise.rumptycloud.app/docs) · [How it's built](#architecture) · [Run it locally](#run-it-locally)
+[Live API](https://portwise-api.rumptycloud.app) · [API docs](https://portwise-api.rumptycloud.app/docs) · [How it's built](#architecture) · [Run it locally](#run-it-locally)
 
 <img src="docs/calculator.png" alt="PortWise showing a ₦8,578,995.87 landed cost for 20 smartphones from Dubai, broken down into customs value, duty, levies and VAT" width="860">
 
@@ -196,7 +196,7 @@ On start-up the API upgrades the schema in place and refreshes exchange rates. T
 
 | Build argument | Value |
 | --- | --- |
-| `VITE_API_URL` | `https://portwise.rumptycloud.app` (also used for the CSP) |
+| `VITE_API_URL` | `https://portwise-api.rumptycloud.app` (also used for the CSP) |
 | `VITE_SITE_URL` | The web app's own URL (for link previews) |
 
 ## API at a glance
@@ -211,7 +211,7 @@ On start-up the API upgrades the schema in place and refreshes exchange rates. T
 | GET | `/api/v1/config/regime` | Active levy regime and rates |
 | GET | `/`, `/health` | Liveness check (no database access) |
 
-Business-rule errors return HTTP 400 with `{success: false, code, detail}`. The codes are `prohibited_item`, `unsupported_goods`, `unknown_hs_code`, `no_tariff_in_force` and `unsupported_currency`. Invalid input returns 422, an oversized body 413, and rate limiting 429. Full reference: [`/docs`](https://portwise.rumptycloud.app/docs).
+Business-rule errors return HTTP 400 with `{success: false, code, detail}`. The codes are `prohibited_item`, `unsupported_goods`, `unknown_hs_code`, `no_tariff_in_force` and `unsupported_currency`. Invalid input returns 422, an oversized body 413, and rate limiting 429. Full reference: [`/docs`](https://portwise-api.rumptycloud.app/docs).
 
 ## Repository
 

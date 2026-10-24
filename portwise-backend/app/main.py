@@ -12,7 +12,7 @@ from app.admin.routes import router as admin_router
 from app.fx_provider import start_background_refresh, stop_background_refresh
 from app.limits import BodySizeLimit, RateLimit
 from app.config import CACHE_TTL_SECONDS, get_levy_rates
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.errors import PortWiseError, portwise_error_handler
 from app.schemas import CalculateRequest, MultiCalculateRequest
 from app.seed import init_database
@@ -78,6 +78,32 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "online", "service": "PortWise API", "version": VERSION}
+
+
+@app.get("/health/ready")
+def readiness():
+    """Checks the database too: 200 when calculations can run, 503 (with the reason) when not."""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    from app.database import engine
+    from app.models import HSCodeTariff
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db = SessionLocal()
+        try:
+            tariffs = db.query(HSCodeTariff).count()
+        finally:
+            db.close()
+    except Exception as exc:  # report the kind of failure, never connection details
+        log.exception("Readiness check failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "database": engine.dialect.name, "error": type(exc).__name__},
+        )
+    return {"status": "ready", "database": engine.dialect.name, "tariff_rows": tariffs, "version": VERSION}
 
 
 @app.post("/api/v1/calculate")
