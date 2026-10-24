@@ -1,56 +1,47 @@
-import type { CalcItemRequest, CalcItemResult, CalcResponse } from "@/lib/api/schemas";
-import { formatForeign, formatInt, formatNgn, formatPct } from "@/lib/format";
-import { baseAmount, BASE_NAME, levyBase, levyName } from "./labels";
+import type { FxUsed, LineResult } from "@/lib/api/schemas";
+import { formatAmount, formatInt, formatNgn, formatPct } from "@/lib/format";
+import { chargeLabel } from "./labels";
 
 /**
- * Step-by-step working for one product. Every number comes from the API
- * response (or the request the user typed); the UI only sets them in sentences.
+ * Step-by-step working for one product line. Every number comes from the API
+ * response; the UI only sets them in sentences.
  */
-function ItemMath({ item, req, fx }: { item: CalcItemResult; req: CalcItemRequest | undefined; fx: CalcResponse["fx"] }) {
-  const currency = item.currency ?? req?.currency ?? "NGN";
-  const unit = item.unit_value ?? req?.unit_value;
-  const rate = fx.find((f) => f.from === currency)?.rate;
+function LineMath({ line, fx }: { line: LineResult; fx: FxUsed[] }) {
+  const b = line.breakdown;
+  const currency = line.currency ?? "NGN";
+  const rate = line.fx_rate ?? fx.find((f) => f.currency === currency)?.rate;
   const steps: { name: string; working: string; result: number }[] = [];
 
   steps.push({
     name: "Goods value (FOB)",
     working:
-      unit != null
-        ? `${formatForeign(currency, unit)} × ${formatInt(item.quantity)}${currency !== "NGN" && rate ? ` at ${formatNgn(rate)} per ${currency}` : ""}`
-        : `${formatInt(item.quantity)} units`,
-    result: item.fob,
+      line.fob_value_fc != null && currency !== "NGN" && rate
+        ? `${currency} ${formatAmount(line.fob_value_fc)}${line.quantity ? ` for ${formatInt(line.quantity)} units` : ""} at ${formatNgn(rate)} per ${currency}`
+        : line.quantity
+          ? `${formatInt(line.quantity)} units`
+          : "Invoice value",
+    result: line.fob_value_ngn,
   });
-  steps.push({
-    name: "Customs value (CIF)",
-    working: `${formatNgn(item.fob)} goods + ${formatNgn(item.shipping_insurance)} shipping and insurance`,
-    result: item.cif,
-  });
-  steps.push({
-    name: "Import duty",
-    working:
-      item.duty.rate_type === "per_kg" && item.duty.rate_per_kg != null
-        ? `${item.weight_kg ?? req?.weight_kg ?? "?"} kg × ${formatNgn(item.duty.rate_per_kg)} per kg`
-        : `${formatNgn(item.cif)} × ${formatPct(item.duty.pct ?? 0)}`,
-    result: item.duty.amount,
-  });
-  for (const l of item.levies) {
-    const b = levyBase(l);
-    const amt = baseAmount(item, b);
-    steps.push({
-      name: levyName(l),
-      working: amt != null && b ? `${formatNgn(amt)} ${BASE_NAME[b]} × ${formatPct(l.pct)}` : formatPct(l.pct),
-      result: l.amount,
-    });
+  for (const c of b.charges) {
+    if (c.name === "CIF Value") {
+      steps.push({
+        name: "Customs value (CIF)",
+        working: `${formatNgn(line.fob_value_ngn)} goods + ${formatNgn(line.allocated_freight_insurance_ngn)} freight and insurance`,
+        result: c.amount_ngn,
+      });
+    } else {
+      steps.push({ name: chargeLabel(c), working: `${formatNgn(c.base)} × ${formatPct(c.rate_pct)}`, result: c.amount_ngn });
+    }
   }
   steps.push({
     name: "VAT",
-    working: `${formatNgn(item.vat.base)} (customs value, duty and levies) × ${formatPct(item.vat.pct)}`,
-    result: item.vat.amount,
+    working: `${formatNgn(b.vat_base_ngn)} (customs value, duty and levies) × ${formatPct(b.vat_rate_pct)}`,
+    result: b.vat_amount_ngn,
   });
   steps.push({
     name: "Landed cost",
-    working: `${formatNgn(item.vat.base)} + ${formatNgn(item.vat.amount)} VAT`,
-    result: item.total,
+    working: `${formatNgn(b.cif_value_ngn)} customs value + ${formatNgn(b.total_charges_ngn)} duty, levies and VAT`,
+    result: b.total_landed_cost_ngn,
   });
 
   return (
@@ -75,16 +66,16 @@ function ItemMath({ item, req, fx }: { item: CalcItemResult; req: CalcItemReques
   );
 }
 
-export function ShowMath({ res, reqItems }: { res: CalcResponse; reqItems: CalcItemRequest[] }) {
-  if (res.items.length === 1) return <ItemMath item={res.items[0]} req={reqItems[0]} fx={res.fx} />;
+export function ShowMath({ lines, fx }: { lines: LineResult[]; fx: FxUsed[] }) {
+  if (lines.length === 1) return <LineMath line={lines[0]} fx={fx} />;
   return (
     <div className="space-y-6">
-      {res.items.map((it, i) => (
-        <section key={i} aria-label={`Working for ${it.description}`}>
+      {lines.map((line, i) => (
+        <section key={line.item_id} aria-label={`Working for ${line.description ?? line.hs_code}`}>
           <h4 className="mb-3 text-sm font-semibold text-pw-navy">
-            {i + 1}. {it.description}
+            {i + 1}. {line.description ?? `HS ${line.hs_code}`}
           </h4>
-          <ItemMath item={it} req={reqItems[i]} fx={res.fx} />
+          <LineMath line={line} fx={fx} />
         </section>
       ))}
     </div>

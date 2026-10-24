@@ -1,100 +1,432 @@
 // SAMPLE DATA for the in-browser mock API (dev and ?demo=1 only).
-// Duty rates are illustrative ECOWAS CET bands, NOT verified against the
-// Nigeria Customs Service schedule. The live API is the source of truth.
-import type { Category, Currency, HsCode, LevyBase, Preset } from "@/lib/api/schemas";
+// Generated from portwise-backend/data/tariffs_2026.csv, the same sourced catalog the API loads.
+// Exchange rates here are fixed demo values, not live rates.
+import type { FxRate, HsCode, Preset } from "@/lib/api/schemas";
 
-export const categories: Category[] = [
-  { id: 1, slug: "phones-electronics", name: "Phones and electronics", needs_weight: false, icon: "smartphone" },
-  { id: 2, slug: "textiles-fabric", name: "Textiles and fabric", needs_weight: false, icon: "shirt" },
-  { id: 3, slug: "cosmetics", name: "Cosmetics and beauty", needs_weight: false, icon: "sparkles" },
-  { id: 4, slug: "machine-parts", name: "Machine parts", needs_weight: false, icon: "cog" },
-  { id: 5, slug: "footwear", name: "Footwear", needs_weight: false, icon: "footprints" },
-  { id: 6, slug: "auto-parts", name: "Vehicle spare parts", needs_weight: false, icon: "car" },
+export const hsCodes: HsCode[] = [
+  {
+    "code": "3305.90",
+    "description": "Hair products (relaxers, pomades)",
+    "category": "Cosmetics and beauty",
+    "keywords": "relaxer hair cream pomade conditioner",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 3305900000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "3304.10",
+    "description": "Lip make-up",
+    "category": "Cosmetics and beauty",
+    "keywords": "lipstick lip gloss makeup",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 3304100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "3303.00",
+    "description": "Perfumes and fragrances",
+    "category": "Cosmetics and beauty",
+    "keywords": "perfume cologne fragrance scent body spray",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 3303001000/2000/9000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "3305.10",
+    "description": "Shampoos",
+    "category": "Cosmetics and beauty",
+    "keywords": "shampoo hair wash",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 3305100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "3304.99",
+    "description": "Skincare creams and lotions",
+    "category": "Cosmetics and beauty",
+    "keywords": "cream lotion body moisturiser skincare",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 3304990000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6403.91",
+    "description": "Leather boots",
+    "category": "Footwear",
+    "keywords": "boots leather boots",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6403919000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6403.99",
+    "description": "Leather shoes",
+    "category": "Footwear",
+    "keywords": "leather shoes formal shoes",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6403999000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6402.20",
+    "description": "Slippers and sandals",
+    "category": "Footwear",
+    "keywords": "slippers slides flip flops sandals",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6402209000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6404.11",
+    "description": "Sneakers and sports shoes",
+    "category": "Footwear",
+    "keywords": "sneakers trainers canvas sports shoes",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6404119000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8482.10",
+    "description": "Ball bearings",
+    "category": "Machine parts",
+    "keywords": "bearing bearings",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8482100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8413.70",
+    "description": "Centrifugal water pumps",
+    "category": "Machine parts",
+    "keywords": "pump water pump borehole",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8413700000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8409.99",
+    "description": "Diesel engine parts",
+    "category": "Machine parts",
+    "keywords": "engine piston diesel parts",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8409990000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8503.00",
+    "description": "Generator and motor parts",
+    "category": "Machine parts",
+    "keywords": "generator alternator spare parts motor",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8503000000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8437.10",
+    "description": "Grain cleaning and sorting machines",
+    "category": "Machine parts",
+    "keywords": "grain machine rice destoner agricultural",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8437100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8481.80",
+    "description": "Valves and taps",
+    "category": "Machine parts",
+    "keywords": "valve tap plumbing",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8481800000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8504.40",
+    "description": "Chargers and power adapters",
+    "category": "Phones and electronics",
+    "keywords": "charger adapter usb power supply inverter",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8504402000 / 8504409000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8518.30",
+    "description": "Headphones and earbuds",
+    "category": "Phones and electronics",
+    "keywords": "earphones airpods headset earbuds",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8518300000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8471.30",
+    "description": "Laptops and tablets",
+    "category": "Phones and electronics",
+    "keywords": "laptop computer notebook macbook ipad tablet",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8471309000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8507.60",
+    "description": "Lithium-ion batteries and power banks",
+    "category": "Phones and electronics",
+    "keywords": "battery powerbank power bank lithium",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8507600000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8517.62",
+    "description": "Routers and modems",
+    "category": "Phones and electronics",
+    "keywords": "router modem wifi mifi hotspot",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8517620000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8517.13",
+    "description": "Smartphones",
+    "category": "Phones and electronics",
+    "keywords": "phone mobile iphone android samsung tecno infinix cellphone",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 5.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8517130000 + SI29/2026 IAT (smart phones)",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8528.72",
+    "description": "Televisions",
+    "category": "Phones and electronics",
+    "keywords": "tv television smart tv led screen",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 15.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8528729000 + SI29/2026 IAT",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6109.10",
+    "description": "Cotton T-shirts",
+    "category": "Textiles and fabric",
+    "keywords": "tshirt t-shirt tee shirts clothing",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6109100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "5804.21",
+    "description": "Lace fabric",
+    "category": "Textiles and fabric",
+    "keywords": "lace george aso ebi fabric",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 5804210000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "5407.61",
+    "description": "Polyester woven fabric",
+    "category": "Textiles and fabric",
+    "keywords": "polyester chiffon synthetic fabric cloth",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 5407610000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "5208.52",
+    "description": "Printed cotton fabric (Ankara, wax print)",
+    "category": "Textiles and fabric",
+    "keywords": "ankara wax print cloth fabric cotton",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 5208521000 (wax)",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "6204.42",
+    "description": "Women's cotton dresses",
+    "category": "Textiles and fabric",
+    "keywords": "gown dress clothing ready-made garments",
+    "duty_rate_pct": 20.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 6204420000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8708.30",
+    "description": "Brake pads and brake parts",
+    "category": "Vehicle spare parts",
+    "keywords": "brake pads brakes car parts",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 25.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8708300000 + SI29/2026 IAT",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "4011.10",
+    "description": "Car tyres (new)",
+    "category": "Vehicle spare parts",
+    "keywords": "tyre tire tyres wheels",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 4011100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8421.23",
+    "description": "Engine oil filters",
+    "category": "Vehicle spare parts",
+    "keywords": "oil filter filter",
+    "duty_rate_pct": 5.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8421230000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8708.80",
+    "description": "Shock absorbers and suspension parts",
+    "category": "Vehicle spare parts",
+    "keywords": "shock absorber suspension car parts",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8708800000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  },
+  {
+    "code": "8511.10",
+    "description": "Spark plugs",
+    "category": "Vehicle spare parts",
+    "keywords": "spark plug ignition",
+    "duty_rate_pct": 10.0,
+    "iat_rate_pct": 0.0,
+    "prohibited": false,
+    "source_ref": "ECOWAS CET 2022-27, 8511100000",
+    "hs_version": "2022",
+    "effective_from": "2026-04-01"
+  }
 ];
 
-type Seed = [id: number, categoryId: number, code: string, description: string, duty: number, keywords: string];
+export const fxRates: Record<string, number> = { USD: 1500, EUR: 1630, GBP: 1915, CNY: 208, AED: 408.5 };
 
-const seed: Seed[] = [
-  [12, 1, "8517.13", "Smartphones", 20, "phone mobile iphone android cellphone"],
-  [13, 1, "8471.30", "Laptops and tablets", 5, "computer notebook ipad macbook"],
-  [14, 1, "8504.40", "Chargers and power adapters", 10, "charger adapter usb"],
-  [15, 1, "8518.30", "Headphones and earbuds", 20, "earphones airpods headset"],
-  [16, 1, "8528.72", "Televisions", 20, "tv screen smart tv"],
-  [17, 1, "8507.60", "Lithium-ion batteries and power banks", 20, "battery powerbank"],
-  [21, 2, "5208.52", "Printed cotton fabric (Ankara)", 20, "ankara wax print cloth"],
-  [22, 2, "5407.61", "Polyester woven fabric", 20, "synthetic chiffon cloth"],
-  [23, 2, "5804.21", "Lace fabric", 20, "lace george aso ebi"],
-  [24, 2, "6109.10", "Cotton T-shirts", 20, "tshirt tee shirt clothing"],
-  [25, 2, "6204.42", "Women's cotton dresses", 20, "gown clothing ready-made garments"],
-  [31, 3, "3304.99", "Skincare creams and lotions", 20, "cream lotion body moisturiser"],
-  [32, 3, "3305.10", "Shampoos", 20, "hair wash"],
-  [33, 3, "3305.90", "Hair products (relaxers, pomades)", 20, "relaxer hair cream pomade"],
-  [34, 3, "3303.00", "Perfumes and fragrances", 20, "perfume cologne scent"],
-  [35, 3, "3304.10", "Lip make-up", 20, "lipstick lip gloss makeup"],
-  [41, 4, "8503.00", "Generator parts", 5, "generator alternator spare"],
-  [42, 4, "8413.70", "Centrifugal water pumps", 5, "pump borehole"],
-  [43, 4, "8482.10", "Ball bearings", 5, "bearing"],
-  [44, 4, "8409.99", "Diesel engine parts", 5, "engine piston"],
-  [45, 4, "8481.80", "Valves and taps", 10, "valve tap plumbing"],
-  [51, 5, "6404.11", "Sneakers and sports shoes", 20, "trainers canvas"],
-  [52, 5, "6403.99", "Leather shoes", 20, "formal shoes"],
-  [53, 5, "6402.20", "Slippers and sandals", 20, "slides flip flops"],
-  [54, 5, "6403.91", "Leather boots", 20, "boot"],
-  [61, 6, "8708.30", "Brake pads", 10, "brake car"],
-  [62, 6, "8708.80", "Shock absorbers", 10, "suspension car"],
-  [63, 6, "4011.10", "Car tyres", 10, "tire tyre wheel"],
-  [64, 6, "8511.10", "Spark plugs", 10, "plug ignition"],
-  [65, 6, "8421.23", "Oil filters", 10, "filter"],
-];
-
-export const hsCodes: HsCode[] = seed.map(([id, category_id, code, description, duty_pct, keywords]) => ({
-  id,
-  category_id,
-  code,
-  description,
-  keywords,
-  rate_type: "ad_valorem",
-  duty_pct,
-  rate_per_kg: null,
-  needs_weight: false,
-  has_rate: true,
-}));
-
-export const levies: { code: string; name: string; pct: number; base: LevyBase }[] = [
-  { code: "SURCHARGE", name: "Customs surcharge", pct: 7, base: "duty" },
-  { code: "ETLS", name: "ECOWAS trade levy (ETLS)", pct: 0.5, base: "cif" },
-  { code: "CISS", name: "Import supervision levy (CISS)", pct: 1, base: "fob" },
-];
-
-export const VAT_PCT = 7.5;
-
-export const fxRates: Record<Exclude<Currency, "NGN">, number> = {
-  USD: 1500,
-  EUR: 1630,
-  GBP: 1915,
-  CNY: 208,
-};
+export const fxList = (): FxRate[] =>
+  Object.entries(fxRates).map(([currency, rate]) => ({
+    currency,
+    rate,
+    source: "Demo rate",
+    as_of_date: new Date().toISOString().slice(0, 10),
+    stale: false,
+    placeholder: false,
+    is_manual: true,
+    age_business_days: 0,
+  }));
 
 export const presets: Preset[] = [
   {
     id: "phones-dubai",
     label: "Phones from Dubai",
-    description: "20 smartphones at $250 each, $250 shipping and insurance",
-    items: [{ hs_code_id: 12, unit_value: 250, currency: "USD", quantity: 20, shipping_insurance: 250, weight_kg: null }],
+    description: "20 smartphones at $250 each, $250 freight and insurance",
+    freight: { amount: 250, currency: "USD" },
+    items: [{ hs_code: "8517.13", unit_value: 250, quantity: 20, currency: "USD", origin_country: "AE" }],
   },
   {
     id: "fabric-china",
     label: "Fabric from China",
-    description: "1,500 yards of Ankara at ¥18 a yard",
-    items: [{ hs_code_id: 21, unit_value: 18, currency: "CNY", quantity: 1500, shipping_insurance: 4000, weight_kg: null }],
+    description: "1,500 yards of printed cotton at \u00a518 a yard",
+    freight: { amount: 4000, currency: "CNY" },
+    items: [{ hs_code: "5208.52", unit_value: 18, quantity: 1500, currency: "CNY", origin_country: "CN" }],
   },
   {
     id: "parts-germany",
     label: "Parts from Germany",
-    description: "Bearings and water pumps in one shipment",
+    description: "Ball bearings and water pumps in one shipment",
+    freight: { amount: 550, currency: "EUR" },
     items: [
-      { hs_code_id: 43, unit_value: 12, currency: "EUR", quantity: 400, shipping_insurance: 300, weight_kg: null },
-      { hs_code_id: 42, unit_value: 180, currency: "EUR", quantity: 6, shipping_insurance: 250, weight_kg: null },
+      { hs_code: "8482.10", unit_value: 12, quantity: 400, currency: "EUR", origin_country: "DE" },
+      { hs_code: "8413.70", unit_value: 180, quantity: 6, currency: "EUR", origin_country: "DE" },
     ],
   },
 ];

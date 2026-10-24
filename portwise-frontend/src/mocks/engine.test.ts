@@ -1,66 +1,60 @@
-// The Backend document's worked examples (§2). The real API must return the
-// same numbers; these tests keep the demo-mode mock honest too.
-import { calculateResponse, computeItem, round2 } from "./engine";
-import { levies, VAT_PCT } from "./fixtures";
+// The demo-mode mock must agree with the real API to the kobo. These are the
+// backend team's reference figures (portwise-backend tests/test_api.py).
+import { computeBreakdown, calculateShipment, DEFAULT_RATES, allocate } from "./engine";
 
-const phones = {
-  hs: { code: "8517.13", description: "Smartphones", rate_type: "ad_valorem" as const, duty_pct: 20, rate_per_kg: null },
-  unitValue: 250,
+const line = {
+  item_id: "1",
+  hs_code: "8517.12",
+  description: "Phones",
+  category: "Phones and electronics",
+  duty_pct: 20,
+  fob_fc: 3_000_000,
+  currency: "NGN",
+  fx: 1,
+  origin: "CN",
   quantity: 20,
-  shipping: 250,
-  weightKg: null,
-  fx: 1500,
 };
 
-describe("landed-cost formula", () => {
-  it("unit test #1: 20 smartphones × $250 at ₦1,500", () => {
-    const res = calculateResponse([phones], levies, VAT_PCT, []);
-    const item = res.items[0];
-    expect(item.fob).toBe(7_500_000);
-    expect(item.shipping_insurance).toBe(375_000);
-    expect(item.cif).toBe(7_875_000);
-    expect(item.duty.amount).toBe(1_575_000);
-    expect(item.levies.map((l) => [l.code, l.amount])).toEqual([
-      ["SURCHARGE", 110_250],
-      ["ETLS", 39_375],
-      ["CISS", 75_000],
+describe("landed-cost engine (mirror of the API)", () => {
+  it("reference: N3m FOB + N450k freight at 20% duty, legacy regime", () => {
+    const b = computeBreakdown(3_000_000, 450_000, 20, "legacy", true, DEFAULT_RATES);
+    expect(b.cif_value_ngn).toBe(3_450_000);
+    expect(b.duty_amount_ngn).toBe(690_000);
+    expect(b.charges.map((c) => [c.name, c.amount_ngn])).toEqual([
+      ["CIF Value", 3_450_000],
+      ["Import Duty", 690_000],
+      ["Surcharge", 48_300],
+      ["CISS", 30_000],
+      ["ETLS", 17_250],
     ]);
-    expect(item.vat.base).toBe(9_674_625);
-    expect(item.vat.amount).toBe(725_596.88);
-    expect(item.total).toBe(10_400_221.88);
-    expect(item.per_unit).toBe(520_011.09);
-    expect(res.totals.levies).toBe(224_625);
-    expect(res.totals.uplift_pct).toBe(38.67);
+    expect(b.vat_amount_ngn).toBe(317_666.25);
+    expect(b.total_landed_cost_ngn).toBe(4_553_216.25);
   });
 
-  it("unit test #2: fabric, CIF ₦3,000,000 at 10% duty", () => {
-    const r = computeItem(
-      {
-        hs: { code: "5208.52", description: "Fabric", rate_type: "ad_valorem", duty_pct: 10, rate_per_kg: null },
-        unitValue: 3_000_000,
-        quantity: 1,
-        shipping: 0,
-        weightKg: null,
-        fx: 1,
-      },
-      levies,
-      VAT_PCT,
-    );
-    expect(round2(r.total)).toBe(3_618_450);
+  it("reference: same goods under the 4% FOB charge", () => {
+    expect(computeBreakdown(3_000_000, 450_000, 20, "fob4", true, DEFAULT_RATES).total_landed_cost_ngn).toBe(4_598_043.75);
   });
 
-  it("charges per-kg duty on weight", () => {
-    const r = computeItem(
-      { ...phones, hs: { ...phones.hs, rate_type: "per_kg", duty_pct: null, rate_per_kg: 400 }, weightKg: 100 },
-      levies,
-      VAT_PCT,
-    );
-    expect(r.duty).toBe(40_000);
+  it("Backend document example #1 (legacy): 20 phones at $250, $250 freight, N1,500/$", () => {
+    expect(computeBreakdown(7_500_000, 375_000, 20, "legacy", true, DEFAULT_RATES).total_landed_cost_ngn).toBe(10_400_221.88);
   });
 
-  it("sums multi-item, multi-currency totals from per-item naira values", () => {
-    const res = calculateResponse([phones, { ...phones, fx: 1 }], levies, VAT_PCT, []);
-    expect(res.totals.fob).toBe(7_500_000 + 5_000);
-    expect(res.totals.total).toBeCloseTo(res.items[0].total + res.items[1].total, 1);
+  it("shows both regimes and leads with the higher", () => {
+    const res = calculateShipment({ lines: [line], freightNgn: 450_000, regimes: ["legacy", "fob4"], etls: true, fx: [] });
+    expect(res.primary_regime).toBe("fob4");
+    expect(res.shipment_summary.grand_total_landed_cost_ngn).toBe(4_598_043.75);
+    expect(res.scenarios.map((s) => s.shipment_summary.grand_total_landed_cost_ngn)).toEqual([4_553_216.25, 4_598_043.75]);
+    expect(res.line_items[0].per_unit_landed_cost_ngn).toBe(229_902.19);
+    expect(res.sensitivity_analysis.find((r) => r.fx_shift_pct === 0)?.total_landed_cost_ngn).toBe(4_598_043.75);
+  });
+
+  it("assumes freight when none is given and says so", () => {
+    const res = calculateShipment({ lines: [line], freightNgn: null, regimes: ["legacy"], etls: true, fx: [] });
+    expect(res.shipment_summary.total_freight_insurance_ngn).toBe(300_000);
+    expect(res.assumptions.some((a) => a.includes("10% of the FOB value"))).toBe(true);
+  });
+
+  it("splits freight in proportion to FOB, remainder to the last line", () => {
+    expect(allocate(100, [1, 1, 1])).toEqual([33.33, 33.33, 33.34]);
   });
 });

@@ -1,41 +1,67 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useReducedMotion } from "@/lib/useReducedMotion";
 import { PencilLine, Share2 } from "lucide-react";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 import { ApiError } from "@/lib/api/client";
-import { useCalculate, useCatalog, usePresets } from "@/lib/api/hooks";
+import { useCalculate, useCatalog, usePresets, useRegimeConfig } from "@/lib/api/hooks";
 import type { CalcRequest, CalcResponse, Preset } from "@/lib/api/schemas";
-import { decodeItems, shareUrl, writeUrl } from "@/lib/url-state";
+import { decodeRequest, shareUrl, writeUrl } from "@/lib/url-state";
 import { Alert, Button } from "@/components/ui/primitives";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { usePageTitle } from "@/components/usePageTitle";
+import { WakeNotice } from "@/components/WakeNotice";
 import { Docket, type DocketState } from "@/features/results/Docket";
 import { copyText, summaryText } from "@/features/results/share";
 import { CalculatorForm } from "./CalculatorForm";
 import { describeError, type UiError } from "./errors";
-import { apiFieldToFormPath, emptyItem, fromRequest, makeFormSchema, toRequest, type FormValues } from "./form-model";
+import {
+  apiFieldToFormPath,
+  emptyForm,
+  fromRequest,
+  itemIndexFromMessage,
+  makeFormSchema,
+  toRequest,
+  type FormValues,
+} from "./form-model";
 import { PresetChips } from "./PresetChips";
 
 type Source = "submit" | "preset" | "restore" | "live" | "retry";
 const keyOf = (r: CalcRequest) => JSON.stringify(r);
 
+/** Which form field a business-rule error points at, when the API names the item. */
+const RULE_FIELD: Record<string, "hsCode" | "origin" | "currency"> = {
+  unknown_hs_code: "hsCode",
+  no_tariff_in_force: "hsCode",
+  unsupported_goods: "hsCode",
+  prohibited_item: "origin",
+  unsupported_currency: "currency",
+};
+
+export const presetToRequest = (p: Preset): CalcRequest => ({
+  items: p.items.map((it, i) => ({ item_id: String(i + 1), ...it })),
+  ...(p.freight ? { total_freight_insurance: p.freight.amount, freight_currency: p.freight.currency } : {}),
+});
+
 export function CalculatorPage() {
   usePageTitle(null);
   const catalog = useCatalog();
   const presets = usePresets();
+  const regimeConfig = useRegimeConfig();
   const calc = useCalculate();
   const reduce = useReducedMotion();
   const toast = useToast();
 
-  const hsRef = useRef(catalog.hsById);
-  hsRef.current = catalog.hsById;
+  const codesRef = useRef(catalog.byCode);
+  useEffect(() => {
+    codesRef.current = catalog.byCode;
+  }, [catalog.byCode]);
 
   const form = useForm<FormValues>({
-    defaultValues: { items: [emptyItem()] },
+    defaultValues: emptyForm(),
     mode: "onTouched",
     resolver: ((values, ctx, opts) =>
-      zodResolver(makeFormSchema(hsRef.current))(values, ctx, opts as never)) as Resolver<FormValues>,
+      zodResolver(makeFormSchema(codesRef.current))(values, ctx, opts as never)) as Resolver<FormValues>,
   });
 
   const [result, setResult] = useState<{ res: CalcResponse; req: CalcRequest } | null>(null);
@@ -77,7 +103,7 @@ export function CalculatorPage() {
       setPending(source);
       setSlow(false);
       if (source !== "live") setUiError(null);
-      const slowTimer = setTimeout(() => id === seq.current && setSlow(true), 4000);
+      const slowTimer = setTimeout(() => id === seq.current && setSlow(true), 6000);
 
       try {
         const res = await calc.mutateAsync({ req, signal: ctrl.signal });
@@ -102,7 +128,12 @@ export function CalculatorPage() {
               }
             }
           }
-          if (e.code === "HS_CODE_NOT_FOUND") catalog.refetch();
+          const field = RULE_FIELD[e.code];
+          const index = itemIndexFromMessage(e.message) ?? (req.items.length === 1 ? 0 : null);
+          if (field && index !== null) {
+            form.setError(`items.${index}.${field}`, { type: "server", message: describeError(e).title }, { shouldFocus: source !== "live" });
+          }
+          if (e.code === "unknown_hs_code") catalog.refetch();
           if (e.code === "RATE_LIMITED") {
             setCooldown(true);
             setTimeout(() => setCooldown(false), 5000);
@@ -123,19 +154,19 @@ export function CalculatorPage() {
 
   const submit = form.handleSubmit((values) => {
     setActivePreset(null);
-    void run(toRequest(values, hsRef.current), hasResult.current ? "retry" : "submit");
+    void run(toRequest(values), hasResult.current ? "retry" : "submit");
   });
 
   const pickPreset = (p: Preset) => {
-    const req: CalcRequest = { items: p.items };
+    const req = presetToRequest(p);
     form.reset(fromRequest(req));
     setActivePreset(p.id);
     void run(req, "preset");
   };
 
-  // A shared link restores the exact goods and calculates on open.
+  // A shared link restores the exact shipment and calculates on open.
   useEffect(() => {
-    const req = decodeItems(location.search);
+    const req = decodeRequest(location.search);
     if (req) {
       form.reset(fromRequest(req));
       void run(req, "restore");
@@ -152,12 +183,13 @@ export function CalculatorPage() {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const values = form.getValues();
-        if (!makeFormSchema(hsRef.current).safeParse(values).success) return;
-        const req = toRequest(values, hsRef.current);
+        if (!makeFormSchema(codesRef.current).safeParse(values).success) return;
+        const req = toRequest(values);
         if (keyOf(req) === lastKey.current) return;
         setActivePreset(null);
+        form.clearErrors();
         void run(req, "live");
-      }, 400);
+      }, 450);
     });
     return () => {
       clearTimeout(timer);
@@ -177,26 +209,21 @@ export function CalculatorPage() {
       title={uiError.title}
       action={
         uiError.retry ? (
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-10 bg-white"
-            onClick={() => lastReq.current && run(lastReq.current, "retry")}
-          >
+          <Button type="button" variant="secondary" className="min-h-10 bg-white" onClick={() => lastReq.current && run(lastReq.current, "retry")}>
             Try again
           </Button>
         ) : undefined
       }
     >
       {uiError.body}
-      {uiError.requestId && <span className="mt-1 block text-xs opacity-75">Reference: {uiError.requestId}</span>}
     </Alert>
   ) : undefined;
 
   const share = async () => {
     if (!result) return;
     const url = shareUrl(result.req);
-    const text = summaryText(result.res, result.req, url);
+    const scenario = result.res.scenarios.find((s) => s.regime === result.res.primary_regime) ?? result.res.scenarios[0];
+    const text = summaryText(result.res, scenario, url);
     if (navigator.share) {
       try {
         await navigator.share({ title: "PortWise estimate", text });
@@ -224,13 +251,8 @@ export function CalculatorPage() {
               Customs duty, levies and VAT on your goods, converted at today's rate and itemized in naira.
             </p>
             <div className="mt-7">
-              <PresetChips
-                presets={presets.data}
-                loading={presets.isLoading}
-                catalog={catalog}
-                activeId={activePreset}
-                onPick={pickPreset}
-              />
+              <WakeNotice />
+              <PresetChips presets={presets.data} loading={presets.isLoading} catalog={catalog} activeId={activePreset} onPick={pickPreset} />
             </div>
           </div>
 
@@ -244,6 +266,8 @@ export function CalculatorPage() {
                 cooldown={cooldown}
                 alert={alert}
                 hasResult={!!result}
+                assumedFreightPct={regimeConfig.data?.rates.default_freight_insurance_pct}
+                defaultRegime={regimeConfig.data?.active_regime}
               />
             </div>
           </div>
@@ -254,9 +278,7 @@ export function CalculatorPage() {
         </div>
       </div>
 
-      {result && (
-        <div className="no-print h-20 lg:hidden" aria-hidden="true" />
-      )}
+      {result && <div className="no-print h-20 lg:hidden" aria-hidden="true" />}
       {result && (
         <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-pw-border bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="mx-auto flex max-w-[560px] gap-3">
@@ -268,7 +290,7 @@ export function CalculatorPage() {
                 formWrap.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
               }}
             >
-              <PencilLine className="size-4" aria-hidden="true" /> Edit goods
+              <PencilLine className="size-4" aria-hidden="true" /> Edit<span className="sr-only"> shipment</span>
             </Button>
             <Button className="flex-[1.4] bg-pw-green hover:bg-[#066b42] active:bg-[#055a37]" onClick={share}>
               <Share2 className="size-4" aria-hidden="true" /> Share estimate

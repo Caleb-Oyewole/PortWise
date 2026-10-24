@@ -1,22 +1,20 @@
 import { http } from "./client";
 import {
   CalcResponse,
-  CategoriesResponse,
-  FxResponse,
+  FxListResponse,
   HsCodesResponse,
   PresetsResponse,
+  RegimeConfig,
   type CalcRequest,
-  type Currency,
 } from "./schemas";
 
 export const calculate = (req: CalcRequest, signal?: AbortSignal) =>
-  http("/calculate", CalcResponse, { method: "POST", body: JSON.stringify(req), signal });
+  http("/api/v1/calculate/multi", CalcResponse, { method: "POST", body: JSON.stringify(req), signal });
 
-export const getCategories = () => http("/categories", CategoriesResponse);
+export const getHsCodes = () => http("/api/v1/hs-codes", HsCodesResponse);
 
-export const getHsCodes = () => http("/hs-codes?limit=500", HsCodesResponse);
+export const getFxRates = () => http("/api/v1/fx", FxListResponse);
 
-export const getFx = (from: Exclude<Currency, "NGN">) =>
-  http(`/fx?from=${encodeURIComponent(from)}`, FxResponse);
+export const getPresets = () => http("/api/v1/presets", PresetsResponse);
 
-export const getPresets = () => http("/presets", PresetsResponse);
+export const getRegimeConfig = () => http("/api/v1/config/regime", RegimeConfig);

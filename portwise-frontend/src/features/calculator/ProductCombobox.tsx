@@ -3,15 +3,15 @@ import { ChevronDown, RefreshCw, Search, X } from "lucide-react";
 import type { HsCode } from "@/lib/api/schemas";
 import type { Catalog } from "@/lib/api/hooks";
 import { cn } from "@/lib/cn";
-import { formatNgn, formatPct } from "@/lib/format";
+import { formatPct } from "@/lib/format";
 import { inputClass, Skeleton } from "@/components/ui/primitives";
 import { CategoryIcon } from "./categoryIcons";
 import { highlight, searchProducts } from "./search";
 
 interface Props {
   id: string;
-  value: number | null;
-  onChange: (id: number | null) => void;
+  value: string | null;
+  onChange: (code: string | null) => void;
   onBlur?: () => void;
   catalog: Catalog & { isLoading: boolean; isError: boolean; refetch: () => void };
   error?: string;
@@ -20,9 +20,8 @@ interface Props {
 }
 
 export const dutyHint = (hs: HsCode) => {
-  if (hs.has_rate === false || (hs.duty_pct == null && hs.rate_per_kg == null)) return "No duty rate yet";
-  if (hs.rate_type === "per_kg" && hs.rate_per_kg != null) return `${formatNgn(hs.rate_per_kg)} per kg`;
-  return `${formatPct(hs.duty_pct ?? 0)} duty`;
+  const duty = `${formatPct(hs.duty_rate_pct)} duty`;
+  return hs.iat_rate_pct > 0 ? `${duty} + ${formatPct(hs.iat_rate_pct)} IAT` : duty;
 };
 
 export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, describedById, inputRef }: Props) {
@@ -30,54 +29,52 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(false);
-  const [active, setActive] = useState<number | null>(null);
+  const [active, setActive] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const localInput = useRef<HTMLInputElement | null>(null);
 
-  const selected = value === null ? undefined : catalog.hsById.get(value);
-  const display = editing ? query : (selected?.description ?? "");
+  const selected = value === null ? undefined : catalog.byCode.get(value);
+  const display = editing ? query : (selected?.description ?? (value ? `HS ${value}` : ""));
 
   const groups = useMemo(() => {
     const all = catalog.groups.flatMap((g) => g.codes);
-    const matches = searchProducts(editing ? query : "", all, catalog.categoryById);
-    const rank = new Map(matches.map((m, i) => [m.hs.id, i]));
+    const matches = searchProducts(editing ? query : "", all);
+    const rank = new Map(matches.map((m, i) => [m.hs.code, i]));
     return catalog.groups
       .map((g) => ({
         ...g,
-        codes: g.codes.filter((c) => rank.has(c.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!),
+        codes: g.codes.filter((c) => rank.has(c.code)).sort((a, b) => rank.get(a.code)! - rank.get(b.code)!),
       }))
       .filter((g) => g.codes.length > 0)
-      .sort((a, b) => (query && editing ? rank.get(a.codes[0].id)! - rank.get(b.codes[0].id)! : 0));
+      .sort((a, b) => (query && editing ? rank.get(a.codes[0].code)! - rank.get(b.codes[0].code)! : 0));
   }, [catalog, query, editing]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.codes), [groups]);
-  const selectable = useMemo(() => flat.filter((h) => h.has_rate !== false), [flat]);
 
   // Keep the highlighted option valid as the list filters.
   const current =
-    active !== null && selectable.some((h) => h.id === active)
+    active !== null && flat.some((h) => h.code === active)
       ? active
-      : (selectable.find((h) => h.id === value)?.id ?? selectable[0]?.id ?? null);
+      : (flat.find((h) => h.code === value)?.code ?? flat[0]?.code ?? null);
 
   useEffect(() => {
     if (!open || current === null) return;
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-option="${current}"]`);
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-option="${CSS.escape(current)}"]`);
     el?.scrollIntoView({ block: "nearest" });
   }, [current, open]);
 
   const choose = (hs: HsCode) => {
-    if (hs.has_rate === false) return;
-    onChange(hs.id);
+    onChange(hs.code);
     setEditing(false);
     setQuery("");
     setOpen(false);
   };
 
   const move = (dir: 1 | -1) => {
-    if (!selectable.length) return;
-    const i = selectable.findIndex((h) => h.id === current);
-    const next = i === -1 ? (dir === 1 ? 0 : selectable.length - 1) : (i + dir + selectable.length) % selectable.length;
-    setActive(selectable[next].id);
+    if (!flat.length) return;
+    const i = flat.findIndex((h) => h.code === current);
+    const next = i === -1 ? (dir === 1 ? 0 : flat.length - 1) : (i + dir + flat.length) % flat.length;
+    setActive(flat[next].code);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -95,7 +92,7 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
       case "Enter":
         if (open) {
           e.preventDefault();
-          const hs = current === null ? undefined : catalog.hsById.get(current);
+          const hs = current === null ? undefined : catalog.byCode.get(current);
           if (hs) choose(hs);
         }
         break;
@@ -116,15 +113,15 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
     }
   };
 
-  const activeId = open && current !== null ? `${listId}-opt-${current}` : undefined;
-  const category = selected ? catalog.categoryById.get(selected.category_id) : undefined;
+  const optionId = (code: string) => `${listId}-opt-${code.replace(/[^\w-]/g, "_")}`;
+  const activeId = open && current !== null ? optionId(current) : undefined;
 
   return (
     <div className="relative">
       <div className="relative">
         {selected && !editing ? (
           <CategoryIcon
-            category={category}
+            category={selected.category}
             className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-pw-navy"
           />
         ) : (
@@ -160,8 +157,7 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
             setActive(null);
           }}
           onFocus={(e) => {
-            // Select the current text so typing replaces it.
-            if (selected) e.currentTarget.select();
+            if (selected) e.currentTarget.select(); // typing replaces the current product
           }}
           onClick={() => setOpen(true)}
           onKeyDown={onKeyDown}
@@ -256,7 +252,7 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
         )}
 
         {groups.map((g) => {
-          const headId = `${listId}-g-${g.category?.id ?? "x"}`;
+          const headId = `${listId}-g-${g.category.replace(/[^\w-]/g, "_")}`;
           return (
             <div key={headId} role="group" aria-labelledby={headId} className="pb-1">
               <div
@@ -265,36 +261,36 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
                 className="sticky top-[-6px] z-10 flex items-center gap-2 bg-white/95 px-3.5 pb-1 pt-2.5 text-[13px] font-semibold text-pw-muted backdrop-blur"
               >
                 <CategoryIcon category={g.category} className="size-4" />
-                {g.category?.name ?? "Other products"}
+                {g.category}
               </div>
               {g.codes.map((hs) => {
-                const disabled = hs.has_rate === false;
-                const isActive = hs.id === current;
-                const isSelected = hs.id === value;
+                const isActive = hs.code === current;
+                const isSelected = hs.code === value;
                 return (
                   // Keyboard selection happens on the combobox input via aria-activedescendant (ARIA 1.2 pattern).
                   // eslint-disable-next-line jsx-a11y/click-events-have-key-events
                   <div
-                    key={hs.id}
-                    id={`${listId}-opt-${hs.id}`}
-                    data-option={hs.id}
+                    key={hs.code}
+                    id={optionId(hs.code)}
+                    data-option={hs.code}
                     role="option"
                     aria-selected={isSelected}
-                    aria-disabled={disabled || undefined}
                     tabIndex={-1}
-                    onMouseMove={() => !disabled && setActive(hs.id)}
+                    onMouseMove={() => setActive(hs.code)}
                     onClick={() => choose(hs)}
                     className={cn(
                       "mx-1.5 flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-lg px-2.5 py-2",
                       isActive && "bg-pw-blue-50",
-                      disabled && "cursor-not-allowed opacity-55",
                     )}
                   >
                     <span className="min-w-0">
                       <span className={cn("block truncate text-[15px] text-pw-text", isSelected && "font-semibold")}>
                         {highlight(hs.description, editing ? query : "").map((c, i) =>
                           c.hit ? (
-                            <mark key={i} className="bg-transparent font-semibold text-pw-navy underline decoration-pw-amber decoration-2 underline-offset-2">
+                            <mark
+                              key={i}
+                              className="bg-transparent font-semibold text-pw-navy underline decoration-pw-amber decoration-2 underline-offset-2"
+                            >
                               {c.text}
                             </mark>
                           ) : (
@@ -302,9 +298,12 @@ export function ProductCombobox({ id, value, onChange, onBlur, catalog, error, d
                           ),
                         )}
                       </span>
-                      <span className="block font-mono text-xs text-pw-muted">HS {hs.code}</span>
+                      <span className="block font-mono text-xs text-pw-muted">
+                        HS {hs.code}
+                        {hs.prohibited && <span className="ml-2 font-sans font-semibold text-pw-coral">Restricted</span>}
+                      </span>
                     </span>
-                    <span className="shrink-0 text-[13px] font-medium text-pw-muted num">{dutyHint(hs)}</span>
+                    <span className="shrink-0 text-right text-[13px] font-medium text-pw-muted num">{dutyHint(hs)}</span>
                   </div>
                 );
               })}

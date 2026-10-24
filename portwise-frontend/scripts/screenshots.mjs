@@ -43,8 +43,8 @@ for (const [w, h, tag] of [
   // Preset → result.
   await p.getByRole("button", { name: /phones from dubai/i }).click();
   await p
-    .getByRole("cell", { name: "₦10,400,221.88" })
-    .waitFor({ timeout: 8000 })
+    .getByRole("heading", { name: /your estimated landed cost/i })
+    .waitFor({ timeout: 15000 })
     .catch(async (e) => {
       await shot(p, `${tag}-FAIL`);
       throw e;
@@ -74,12 +74,10 @@ for (const [w, h, tag] of [
 }
 
 {
-  const { p, ctx } = await page(1440, 900, "fail");
-  await p.goto(base + "/?mockfail=FX_UNAVAILABLE");
-  await p.getByRole("button", { name: /phones from dubai/i }).click();
-  await p.waitForTimeout(1500);
-  await shot(p, "desktop-9-fx-error", false);
-  await p.goto(base + "/?mockfail=off");
+  const { p, ctx } = await page(1440, 900, "error");
+  await p.goto(base + "/?i=8517.13~250~USD~20~CN&i=0207.14~10~USD~100~CN");
+  await p.waitForTimeout(2500);
+  await shot(p, "desktop-9-unknown-code", false);
   await ctx.close();
 }
 

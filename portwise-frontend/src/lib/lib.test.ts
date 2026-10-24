@@ -1,9 +1,17 @@
 import { formatNgn, formatPct, relativeTime, splitNgn } from "./format";
 import { formatMoneyInput, parseInteger, parseMoney, parseWeight } from "./parse";
-import { decodeItems, encodeItems } from "./url-state";
+import { decodeRequest, encodeRequest } from "./url-state";
 import { CalcResponse } from "./api/schemas";
-import { apiFieldToFormPath, makeFormSchema, toRequest } from "@/features/calculator/form-model";
+import {
+  apiFieldToFormPath,
+  emptyForm,
+  fromRequest,
+  itemIndexFromMessage,
+  makeFormSchema,
+  toRequest,
+} from "@/features/calculator/form-model";
 import { hsCodes } from "@/mocks/fixtures";
+import realResponse from "@/test/fixtures/calculate-multi.json";
 
 describe("format", () => {
   it("formats naira with the symbol, never NGN", () => {
@@ -45,82 +53,67 @@ describe("parse", () => {
 describe("url state", () => {
   const req = {
     items: [
-      { hs_code_id: 12, unit_value: 250, currency: "USD" as const, quantity: 20, shipping_insurance: 250, weight_kg: null },
-      { hs_code_id: 43, unit_value: 12.5, currency: "EUR" as const, quantity: 400, shipping_insurance: null, weight_kg: 3 },
+      { item_id: "1", hs_code: "8517.13", unit_value: 250, currency: "USD" as const, quantity: 20, origin_country: "AE" },
+      { item_id: "2", hs_code: "8482.10", unit_value: 12.5, currency: "EUR" as const, quantity: 400, origin_country: "DE" },
     ],
+    total_freight_insurance: 250,
+    freight_currency: "USD" as const,
+    regime: "legacy" as const,
   };
-  it("round-trips several items", () => {
-    expect(decodeItems("?" + encodeItems(req.items))).toEqual(req);
+  it("round-trips a shipment, freight and regime", () => {
+    expect(decodeRequest("?" + encodeRequest(req))).toEqual(req);
+  });
+  it("keeps links readable", () => {
+    expect(encodeRequest(req)).toContain("i=8517.13~250~USD~20~AE");
   });
   it("ignores broken links", () => {
-    expect(decodeItems("?i=abc~~ZZZ")).toBeNull();
-    expect(decodeItems("")).toBeNull();
+    expect(decodeRequest("?i=abc~~ZZZ")).toBeNull();
+    expect(decodeRequest("")).toBeNull();
   });
 });
 
 describe("form model", () => {
-  const byId = new Map(hsCodes.map((h) => [h.id, h]));
-  const schema = makeFormSchema(byId);
-  const valid = { hsCodeId: 12, unitValue: "250.00", currency: "USD" as const, quantity: "20", shipping: "", weight: "" };
+  const byCode = new Map(hsCodes.map((h) => [h.code, h]));
+  const schema = makeFormSchema(byCode);
+  const valid = { ...emptyForm(), items: [{ hsCode: "8517.13", unitValue: "250.00", currency: "USD" as const, quantity: "20", origin: "AE" }] };
 
-  it("accepts a valid item and builds the request", () => {
-    expect(schema.safeParse({ items: [valid] }).success).toBe(true);
-    expect(toRequest({ items: [valid] }, byId).items[0]).toEqual({
-      hs_code_id: 12,
-      unit_value: 250,
-      currency: "USD",
-      quantity: 20,
-      shipping_insurance: null,
-      weight_kg: null,
+  it("accepts a valid shipment and builds the request", () => {
+    expect(schema.safeParse(valid).success).toBe(true);
+    expect(toRequest(valid)).toEqual({
+      items: [{ item_id: "1", hs_code: "8517.13", unit_value: 250, quantity: 20, currency: "USD", origin_country: "AE" }],
     });
   });
+  it("sends freight, regime and ETLS only when set", () => {
+    const req = toRequest({ ...valid, freight: "1,200", freightCurrency: "EUR", regime: "fob4", etls: false });
+    expect(req).toMatchObject({ total_freight_insurance: 1200, freight_currency: "EUR", regime: "fob4", etls_applicable: false });
+    expect(fromRequest(req).freight).toBe("1,200.00");
+  });
   it("explains each invalid field", () => {
-    const r = schema.safeParse({ items: [{ ...valid, hsCodeId: null, unitValue: "0", quantity: "1.5" }] });
+    const r = schema.safeParse({ ...valid, items: [{ ...valid.items[0], hsCode: null, unitValue: "0", quantity: "1.5" }] });
     expect(r.success).toBe(false);
     const msgs = r.success ? [] : r.error.issues.map((i) => i.message);
     expect(msgs).toEqual(["Choose a product or HS code.", "Enter an amount greater than 0.", "Quantity must be a whole number, 1 or more."]);
   });
-  it("requires weight for per-kg products", () => {
-    const perKg = new Map(byId);
-    perKg.set(12, { ...byId.get(12)!, rate_type: "per_kg", rate_per_kg: 400 });
-    expect(makeFormSchema(perKg).safeParse({ items: [valid] }).success).toBe(false);
+  it("rejects a code that is no longer in the catalog", () => {
+    expect(schema.safeParse({ ...valid, items: [{ ...valid.items[0], hsCode: "0000.00" }] }).success).toBe(false);
   });
-  it("maps API field paths onto inputs", () => {
+  it("maps API field paths and item messages onto inputs", () => {
     expect(apiFieldToFormPath("items.0.unit_value")).toBe("items.0.unitValue");
-    expect(apiFieldToFormPath("body.items.2.weight_kg")).toBe("items.2.weight");
+    expect(apiFieldToFormPath("items.2.origin_country")).toBe("items.2.origin");
+    expect(apiFieldToFormPath("total_freight_insurance")).toBe("freight");
     expect(apiFieldToFormPath("items")).toBeNull();
+    expect(itemIndexFromMessage("Item 2: HS code 9999 is not in the tariff data")).toBe(1);
   });
 });
 
 describe("contract", () => {
-  it("parses the Backend document's example response, including decimal strings", () => {
-    const body = {
-      currency: "NGN",
-      fx: [{ from: "USD", rate: 1500.0, fetched_at: "2026-10-05T09:12:00Z", stale: false }],
-      items: [
-        {
-          hs_code: "8517.13",
-          description: "Smartphones",
-          quantity: 20,
-          fob: "7500000.00",
-          shipping_insurance: 375000.0,
-          cif: 7875000.0,
-          duty: { pct: 20, amount: 1575000.0 },
-          levies: [
-            { code: "SURCHARGE", pct: 7, amount: 110250.0 },
-            { code: "ETLS", pct: 0.5, amount: 39375.0 },
-            { code: "CISS", pct: 1, amount: 75000.0 },
-          ],
-          vat: { pct: 7.5, base: 9674625.0, amount: 725596.88 },
-          total: 10400221.88,
-          per_unit: 520011.09,
-        },
-      ],
-      totals: { fob: 7500000.0, cif: 7875000.0, duty: 1575000.0, levies: 224625.0, vat: 725596.88, total: 10400221.88, uplift_pct: 38.67 },
-      disclaimer: "Estimate only. Final charges are set by the Nigeria Customs Service.",
-    };
-    const parsed = CalcResponse.parse(body);
-    expect(parsed.items[0].fob).toBe(7500000);
-    expect(parsed.totals.total).toBe(10400221.88);
+  it("parses a real /api/v1/calculate/multi response from the backend", () => {
+    const parsed = CalcResponse.parse(realResponse);
+    expect(parsed.scenarios.map((s) => s.regime)).toEqual(["legacy", "fob4"]);
+    expect(parsed.primary_regime).toBe("fob4");
+    expect(parsed.line_items[0].breakdown.charges[0].name).toBe("CIF Value");
+    expect(parsed.line_items[0].per_unit_landed_cost_ngn).toBeGreaterThan(0);
+    const s = parsed.shipment_summary;
+    expect(s.total_cif_ngn + s.total_duty_ngn + s.total_levies_ngn + s.total_vat_ngn).toBeCloseTo(s.grand_total_landed_cost_ngn, 1);
   });
 });

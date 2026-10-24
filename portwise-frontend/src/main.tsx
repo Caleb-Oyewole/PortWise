@@ -4,6 +4,7 @@ import "@fontsource-variable/inter/wght.css";
 import "@fontsource-variable/sora/wght.css";
 import "./styles/globals.css";
 import { resolveDemoMode, setDemoActive } from "./lib/demo-mode";
+import { wakeApi } from "./lib/api/client";
 import { App } from "./App";
 
 async function start() {
@@ -15,6 +16,8 @@ async function start() {
     } catch (e) {
       console.error("Demo mode could not start; using the live API.", e);
     }
+  } else {
+    wakeApi(); // Rumpty sleeps idle apps; start the API while the person reads the page
   }
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

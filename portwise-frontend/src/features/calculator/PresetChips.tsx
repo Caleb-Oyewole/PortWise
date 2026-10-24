@@ -34,8 +34,7 @@ export function PresetChips({
         Try an example:
       </span>
       {presets.map((p) => {
-        const hs = catalog.hsById.get(p.items[0].hs_code_id);
-        const category = hs ? catalog.categoryById.get(hs.category_id) : undefined;
+        const category = catalog.byCode.get(p.items[0].hs_code)?.category;
         const active = p.id === activeId;
         return (
           <button

@@ -1,4 +1,4 @@
-import type { Category, HsCode } from "@/lib/api/schemas";
+import type { HsCode } from "@/lib/api/schemas";
 
 const norm = (s: string) =>
   s
@@ -19,7 +19,7 @@ export interface Match {
  * Matches description, keywords and category name, plus HS-code prefixes:
  * "8517", "8517.13" and "phone" all find smartphones.
  */
-export function searchProducts(query: string, codes: HsCode[], categories: Map<number, Category>): Match[] {
+export function searchProducts(query: string, codes: HsCode[]): Match[] {
   const q = norm(query).trim();
   if (!q) return codes.map((hs) => ({ hs, score: 0 }));
   const tokens = q.split(/\s+/).filter(Boolean);
@@ -28,7 +28,7 @@ export function searchProducts(query: string, codes: HsCode[], categories: Map<n
 
   for (const hs of codes) {
     const desc = norm(hs.description);
-    const hay = `${desc} ${norm(hs.keywords ?? "")} ${norm(categories.get(hs.category_id)?.name ?? "")}`;
+    const hay = `${desc} ${norm(hs.keywords ?? "")} ${norm(hs.category)}`;
     let score = 0;
 
     if (qDigits.length >= 2 && /^[\d.\s]+$/.test(q)) {

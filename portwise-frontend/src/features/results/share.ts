@@ -1,16 +1,21 @@
-import type { CalcRequest, CalcResponse } from "@/lib/api/schemas";
-import { formatNgn, formatRate } from "@/lib/format";
+import { REGIME_NAME, type CalcResponse, type Scenario } from "@/lib/api/schemas";
+import { formatInt, formatNgn } from "@/lib/format";
 
-export function summaryText(res: CalcResponse, req: CalcRequest, url: string) {
-  const t = res.totals;
-  const goods = res.items.map((it) => `${it.quantity} × ${it.description} (HS ${it.hs_code})`).join(", ");
+export function summaryText(res: CalcResponse, scenario: Scenario, url: string) {
+  const s = scenario.shipment_summary;
+  const goods = scenario.line_items
+    .map((l) => `${l.quantity ? `${formatInt(l.quantity)} × ` : ""}${l.description ?? "goods"} (HS ${l.hs_code})`)
+    .join(", ");
+  const other = res.scenarios.find((x) => x.regime !== scenario.regime);
+  const single = scenario.line_items.length === 1 ? scenario.line_items[0] : undefined;
   return [
     "PortWise estimate",
     goods,
-    `Landed cost: ${formatNgn(t.total)}`,
-    `Customs value ${formatNgn(t.cif)}, duty ${formatNgn(t.duty)}, levies ${formatNgn(t.levies)}, VAT ${formatNgn(t.vat)}`,
-    ...res.fx.map((f) => `Rate: ${formatRate(f.from, f.rate)}`),
-    req.items.length === 1 && res.items[0].quantity > 1 ? `Per unit: ${formatNgn(res.items[0].per_unit)}` : null,
+    `Landed cost: ${formatNgn(s.grand_total_landed_cost_ngn)} (${REGIME_NAME[scenario.regime]})`,
+    other ? `With the ${REGIME_NAME[other.regime]}: ${formatNgn(other.shipment_summary.grand_total_landed_cost_ngn)}` : null,
+    single?.per_unit_landed_cost_ngn ? `Per unit: ${formatNgn(single.per_unit_landed_cost_ngn)}` : null,
+    `Customs value ${formatNgn(s.total_cif_ngn)}, duty ${formatNgn(s.total_duty_ngn)}, levies ${formatNgn(s.total_levies_ngn)}, VAT ${formatNgn(s.total_vat_ngn)}`,
+    ...res.fx.filter((f) => f.currency !== "NGN").map((f) => `Rate: 1 ${f.currency} = ${formatNgn(f.rate)}`),
     "Estimate only, not an official customs assessment.",
     url,
   ]

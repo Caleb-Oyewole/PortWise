@@ -1,30 +1,19 @@
 import { createElement } from "react";
 import { Car, Cog, Footprints, Package, Shirt, Smartphone, Sparkles, type LucideIcon } from "lucide-react";
-import type { Category } from "@/lib/api/schemas";
 
-const ICONS: Record<string, LucideIcon> = {
-  smartphone: Smartphone,
-  shirt: Shirt,
-  sparkles: Sparkles,
-  cog: Cog,
-  footprints: Footprints,
-  car: Car,
-};
-
-// Fallback by slug keyword, so a category added in the admin still gets a sensible icon.
-const BY_SLUG: [RegExp, LucideIcon][] = [
-  [/phone|electr/, Smartphone],
-  [/textile|fabric|cloth|garment/, Shirt],
-  [/cosmetic|beauty/, Sparkles],
-  [/machine|part|engine/, Cog],
-  [/foot|shoe/, Footprints],
-  [/auto|vehicle|car/, Car],
+// Matched on the category name, so a category added in the admin still gets a sensible icon.
+const BY_NAME: [RegExp, LucideIcon][] = [
+  [/phone|electr/i, Smartphone],
+  [/textile|fabric|cloth|garment/i, Shirt],
+  [/cosmetic|beauty/i, Sparkles],
+  [/machine|engine/i, Cog],
+  [/foot|shoe/i, Footprints],
+  [/vehicle|auto|car\b|spare/i, Car],
 ];
 
-export function categoryIcon(cat: Category | undefined): LucideIcon {
-  if (!cat) return Package;
-  if (cat.icon && ICONS[cat.icon]) return ICONS[cat.icon];
-  return BY_SLUG.find(([re]) => re.test(cat.slug))?.[1] ?? Package;
+export function categoryIcon(name: string | undefined | null): LucideIcon {
+  if (!name) return Package;
+  return BY_NAME.find(([re]) => re.test(name))?.[1] ?? Package;
 }
 
 /** Renders the icon for a category without creating components during render. */
@@ -33,7 +22,7 @@ export function CategoryIcon({
   className,
   strokeWidth = 1.75,
 }: {
-  category: Category | undefined;
+  category: string | undefined | null;
   className?: string;
   strokeWidth?: number;
 }) {
