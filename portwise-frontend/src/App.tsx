@@ -5,6 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import { ErrorBoundary, NotFoundPage } from "@/components/StatusPages";
 import { CalculatorPage } from "@/features/calculator/CalculatorPage";
 
+const AdminApp = lazy(() => import("@/features/admin/AdminApp"));
+
 const MethodologyPage = lazy(() =>
   import("@/features/methodology/MethodologyPage").then((m) => ({ default: m.MethodologyPage })),
 );
@@ -21,6 +23,16 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route
+            path="/admin/*"
+            element={
+              <ErrorBoundary>
+                <Suspense fallback={<div className="min-h-dvh bg-pw-bg" />}>
+                  <AdminApp />
+                </Suspense>
+              </ErrorBoundary>
+            }
+          />
           <Route element={<AppShell />}>
             <Route
               path="/"

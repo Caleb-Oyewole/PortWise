@@ -79,6 +79,11 @@ function SiteFooter() {
             </Link>
           </p>
           <p className="mt-2">Built for Devcenter Hacktober 2026. Hosted on Rumpty Cloud.</p>
+          <p className="mt-2">
+            <Link to="/admin" className="hover:text-pw-navy hover:underline">
+              Admin sign-in
+            </Link>
+          </p>
           {isDemoMode() && <p className="mt-2 text-pw-amber-text">Demo mode: sample tariffs and rates.</p>}
         </div>
       </div>
