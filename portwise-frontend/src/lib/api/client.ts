@@ -104,7 +104,7 @@ function fieldsFrom422(body: unknown): Record<string, string> | undefined {
 
 export async function http<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T>,
   init: RequestInit = {},
   timeoutMs = 15_000,
 ): Promise<T> {
