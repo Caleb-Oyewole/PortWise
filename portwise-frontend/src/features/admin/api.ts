@@ -36,7 +36,7 @@ export const setUnauthorizedHandler = (fn: () => void) => {
   onUnauthorized = fn;
 };
 
-async function adminHttp<T>(path: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>, init: RequestInit = {}): Promise<T> {
+async function adminHttp<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
   try {
     return await http(`/api/v1/admin${path}`, schema, {

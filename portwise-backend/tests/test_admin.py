@@ -26,7 +26,7 @@ def test_admin_endpoints_need_a_token(client):
 
 def test_login_rejects_wrong_password_and_throttles(client):
     reset_throttle()
-    for _ in range(10):
+    for _ in range(5):
         r = client.post("/api/v1/admin/login", json={"email": DEV_ADMIN_EMAIL, "password": "nope"})
         assert r.status_code == 401
     r = client.post("/api/v1/admin/login", json={"email": DEV_ADMIN_EMAIL, "password": DEV_ADMIN_PASSWORD})

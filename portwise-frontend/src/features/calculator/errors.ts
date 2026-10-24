@@ -28,7 +28,10 @@ export function describeError(e: unknown): UiError {
     case "unsupported_currency":
       return { title: "There is no exchange rate for that currency.", body: clean(e.message), retry: false };
     case "RATE_LIMITED":
+    case "rate_limited":
       return { title: "Too many calculations in a short time.", body: "Wait a few seconds, then try again.", retry: false };
+    case "payload_too_large":
+      return { title: "This shipment is too large to estimate in one go.", body: "Split it into smaller shipments.", retry: false };
     case "WAKING":
       return { title: "The calculator server is still starting.", body: "Give it a few more seconds and try again.", retry: true };
     case "NETWORK":

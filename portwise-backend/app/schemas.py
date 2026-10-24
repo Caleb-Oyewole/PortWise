@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 MAX_MONEY = Decimal("1000000000000")  # 1 trillion; guards against absurd inputs
 MAX_SHIFTS = 9
 MAX_QUANTITY = 10_000_000
+MAX_ITEMS = 50
 
 RegimeChoice = Literal["legacy", "fob4", "both"]
 
@@ -46,7 +47,7 @@ class CalculateRequest(BaseModel):
                     "Omit to use the admin-configured default.",
     )
     etls_applicable: bool = Field(default=True, description="Apply the 0.5% ETLS levy")
-    origin_country: str = Field(default="US", description="ISO country code, or 'ECOWAS'")
+    origin_country: str = Field(default="US", max_length=10, description="ISO country code, or 'ECOWAS'")
     fx_rate_override: Optional[Decimal] = Field(default=None, gt=0, le=MAX_MONEY, description="Custom NGN rate for `currency`")
     sensitivity_shifts_pct: Optional[List[Decimal]] = Field(
         default=None, max_length=MAX_SHIFTS,
@@ -64,7 +65,7 @@ class CalculateRequest(BaseModel):
 
 
 class LineItem(BaseModel):
-    item_id: str = Field(..., min_length=1, description="Unique identifier or SKU for the line item")
+    item_id: str = Field(..., min_length=1, max_length=64, description="Unique identifier or SKU for the line item")
     hs_code: str = Field(..., min_length=1, max_length=20, description="HS code for tariff lookup")
     fob_value_fc: Optional[Decimal] = Field(
         default=None, gt=0, le=MAX_MONEY,
@@ -75,7 +76,7 @@ class LineItem(BaseModel):
         description="Price per unit in `currency`; with `quantity`, the server works out `fob_value_fc` exactly.",
     )
     currency: str = Field(default="USD", min_length=3, max_length=3, description="ISO currency code")
-    origin_country: str = Field(default="US", description="ISO country code, or 'ECOWAS'")
+    origin_country: str = Field(default="US", max_length=10, description="ISO country code, or 'ECOWAS'")
     quantity: Optional[int] = Field(
         default=None, ge=1, le=MAX_QUANTITY,
         description="Units in the line. Reports `per_unit_landed_cost_ngn`; required with `unit_value`.",
@@ -101,7 +102,7 @@ class LineItem(BaseModel):
 
 
 class MultiCalculateRequest(BaseModel):
-    items: List[LineItem] = Field(..., min_length=1, description="Lines in the shipment")
+    items: List[LineItem] = Field(..., min_length=1, max_length=MAX_ITEMS, description="Lines in the shipment (at most 50)")
     total_freight_insurance_ngn: Optional[Decimal] = Field(
         default=None, ge=0, le=MAX_MONEY,
         description="Total shared freight and insurance in NGN. Omit to use the assumed default "

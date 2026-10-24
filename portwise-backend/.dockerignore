@@ -1,7 +1,13 @@
+# Keep local state and secrets out of the image.
 __pycache__/
 *.pyc
-portwise.db
+*.db
+*.sqlite*
+.env
+.env.*
 .venv/
 tests/
+test_multi.py
 .git/
 .pytest_cache/
+crosscheck.csv

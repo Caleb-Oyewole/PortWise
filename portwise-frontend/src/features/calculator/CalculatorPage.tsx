@@ -80,17 +80,12 @@ export function CalculatorPage() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formWrap = useRef<HTMLDivElement>(null);
 
+  // Focus moves to the result heading after React has committed the new result, so it never
+  // lands on the empty-state heading that is about to be replaced (focus would drop to <body>).
+  const focusOnReveal = useRef(false);
   const revealResult = useCallback(() => {
-    requestAnimationFrame(() => {
-      const h = headingRef.current;
-      if (!h) return;
-      h.focus({ preventScroll: true });
-      const top = h.getBoundingClientRect().top;
-      if (top < 0 || top > window.innerHeight * 0.6) {
-        h.closest("[data-docket]")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-      }
-    });
-  }, [reduce]);
+    focusOnReveal.current = true;
+  }, []);
 
   const run = useCallback(
     async (req: CalcRequest, source: Source) => {
@@ -134,7 +129,7 @@ export function CalculatorPage() {
             form.setError(`items.${index}.${field}`, { type: "server", message: describeError(e).title }, { shouldFocus: source !== "live" });
           }
           if (e.code === "unknown_hs_code") catalog.refetch();
-          if (e.code === "RATE_LIMITED") {
+          if (e.code === "RATE_LIMITED" || e.code === "rate_limited") {
             setCooldown(true);
             setTimeout(() => setCooldown(false), 5000);
           }
@@ -196,6 +191,18 @@ export function CalculatorPage() {
       sub.unsubscribe();
     };
   }, [form, run]);
+
+  useEffect(() => {
+    if (!focusOnReveal.current) return;
+    focusOnReveal.current = false;
+    const h = headingRef.current;
+    if (!h) return;
+    h.focus({ preventScroll: true });
+    const top = h.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.6) {
+      h.closest("[data-docket]")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
+  }, [revealKey, result, reduce]);
 
   const docketState: DocketState = result
     ? { kind: "result", ...result, updating: pending !== null, slow }

@@ -10,6 +10,7 @@ from app import catalog, service
 from app.admin.auth import ensure_bootstrap_admin
 from app.admin.routes import router as admin_router
 from app.fx_provider import start_background_refresh, stop_background_refresh
+from app.limits import BodySizeLimit, RateLimit
 from app.config import CACHE_TTL_SECONDS, get_levy_rates
 from app.database import get_db
 from app.errors import PortWiseError, portwise_error_handler
@@ -42,7 +43,8 @@ app = FastAPI(
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
 app.include_router(catalog.router)
-app.include_router(admin_router)
+# Admin endpoints work as before but are left out of the public /docs.
+app.include_router(admin_router, include_in_schema=False)
 
 
 def _cors_origins() -> list[str]:
@@ -55,6 +57,9 @@ def _cors_origins() -> list[str]:
     return ["*"] if raw in ("", "*") else [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
 
 
+# Added first so CORS (added last, outermost) also decorates their 413 / 429 responses.
+app.add_middleware(RateLimit)
+app.add_middleware(BodySizeLimit)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),
