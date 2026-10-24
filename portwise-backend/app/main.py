@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app import service
+from app import catalog, service
 from app.config import CACHE_TTL_SECONDS, get_levy_rates
 from app.database import get_db
 from app.errors import PortWiseError, portwise_error_handler
@@ -35,6 +35,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
+app.include_router(catalog.router)
 
 
 def _cors_origins() -> list[str]:
