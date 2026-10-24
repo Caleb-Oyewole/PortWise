@@ -39,3 +39,12 @@ def test_multi_line_needs_a_value(client):
     r = client.post("/api/v1/calculate/multi", json={
         "items": [{"item_id": "A", "hs_code": "8517.12", "currency": "NGN", "unit_value": 5}]})
     assert r.status_code == 422
+
+
+def test_multi_summary_reports_charges_and_uplift(client):
+    body = client.post("/api/v1/calculate/multi", json={
+        "items": [{"item_id": "A", "hs_code": "8517.12", "fob_value_fc": 3000000, "currency": "NGN"}],
+        "total_freight_insurance_ngn": 450000, "regime": "legacy"}).json()
+    s = body["shipment_summary"]
+    assert s["total_charges_ngn"] == round(4553216.25 - 3450000, 2)
+    assert s["charges_pct_of_fob"] == round((4553216.25 - 3000000) / 3000000 * 100, 2)

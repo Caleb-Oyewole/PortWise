@@ -355,6 +355,9 @@ def _evaluate(
                 "total_levies_ngn": float(totals["levies"]),
                 "total_vat_ngn": float(totals["vat"]),
                 "grand_total_landed_cost_ngn": float(totals["grand"]),
+                # Duty + levies + VAT, and how much they add on top of the goods value.
+                "total_charges_ngn": float(totals["duty"] + totals["levies"] + totals["vat"]),
+                "charges_pct_of_fob": float(q((totals["grand"] - sum(fobs)) / sum(fobs) * HUNDRED)) if sum(fobs) else 0.0,
             },
         }
     return results
