@@ -24,3 +24,18 @@ def test_multi_rejects_both_freight_fields(client):
         "items": [{"item_id": "A", "hs_code": "8517.12", "fob_value_fc": 1000, "currency": "USD"}],
         "total_freight_insurance": 100, "total_freight_insurance_ngn": 5})
     assert r.status_code == 422
+
+
+def test_multi_unit_value_times_quantity_is_exact(client):
+    body = client.post("/api/v1/calculate/multi", json={
+        "items": [{"item_id": "A", "hs_code": "8517.12", "unit_value": "18.35", "quantity": 1500, "currency": "NGN"}],
+        "total_freight_insurance_ngn": 0, "regime": "legacy"}).json()
+    assert body["line_items"][0]["fob_value_fc"] == 27525.0
+
+
+def test_multi_line_needs_a_value(client):
+    r = client.post("/api/v1/calculate/multi", json={"items": [{"item_id": "A", "hs_code": "8517.12", "currency": "NGN"}]})
+    assert r.status_code == 422
+    r = client.post("/api/v1/calculate/multi", json={
+        "items": [{"item_id": "A", "hs_code": "8517.12", "currency": "NGN", "unit_value": 5}]})
+    assert r.status_code == 422

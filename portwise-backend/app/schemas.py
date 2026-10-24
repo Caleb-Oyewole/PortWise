@@ -66,16 +66,38 @@ class CalculateRequest(BaseModel):
 class LineItem(BaseModel):
     item_id: str = Field(..., min_length=1, description="Unique identifier or SKU for the line item")
     hs_code: str = Field(..., min_length=1, max_length=20, description="HS code for tariff lookup")
-    fob_value_fc: Decimal = Field(..., gt=0, le=MAX_MONEY, description="Free on Board value in foreign currency")
+    fob_value_fc: Optional[Decimal] = Field(
+        default=None, gt=0, le=MAX_MONEY,
+        description="Free on Board value of the line in `currency`. Send this, or `unit_value` with `quantity`.",
+    )
+    unit_value: Optional[Decimal] = Field(
+        default=None, gt=0, le=MAX_MONEY,
+        description="Price per unit in `currency`; with `quantity`, the server works out `fob_value_fc` exactly.",
+    )
     currency: str = Field(default="USD", min_length=3, max_length=3, description="ISO currency code")
     origin_country: str = Field(default="US", description="ISO country code, or 'ECOWAS'")
     quantity: Optional[int] = Field(
         default=None, ge=1, le=MAX_QUANTITY,
-        description="Units covered by `fob_value_fc`. Only used to report `per_unit_landed_cost_ngn`.",
+        description="Units in the line. Reports `per_unit_landed_cost_ngn`; required with `unit_value`.",
     )
 
     _v_currency = field_validator("currency", mode="before")(_upper)
     _v_hs = field_validator("hs_code", mode="before")(_clean_text)
+
+    @model_validator(mode="after")
+    def _value_or_unit_price(self):
+        if self.unit_value is not None:
+            if self.quantity is None:
+                raise ValueError("quantity is required with unit_value")
+            total = self.unit_value * self.quantity
+            if self.fob_value_fc is not None and self.fob_value_fc != total:
+                raise ValueError("fob_value_fc does not equal unit_value x quantity; send one of them")
+            if total > MAX_MONEY:
+                raise ValueError("unit_value x quantity is too large")
+            self.fob_value_fc = total
+        elif self.fob_value_fc is None:
+            raise ValueError("send fob_value_fc, or unit_value with quantity")
+        return self
 
 
 class MultiCalculateRequest(BaseModel):
