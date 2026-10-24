@@ -6,14 +6,23 @@ server {
   gzip on;
   gzip_types text/css application/javascript image/svg+xml application/json;
 
-  add_header X-Content-Type-Options nosniff always;
-  add_header Referrer-Policy strict-origin-when-cross-origin always;
-
   # Hashed build assets never change.
-  location /assets/ { add_header Cache-Control "public, max-age=31536000, immutable"; }
-  # Always fetch the newest HTML so a deploy is picked up immediately.
-  location = /index.html { add_header Cache-Control "no-cache"; }
-  location = /mockServiceWorker.js { add_header Cache-Control "no-cache"; }
-  # SPA fallback for /how-it-works and shared links.
-  location / { try_files $uri /index.html; }
+  location /assets/ {
+    include /etc/nginx/conf.d/security-headers.inc;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+  }
+  # Always fetch the newest HTML and service worker so a deploy is picked up immediately.
+  location = /index.html {
+    include /etc/nginx/conf.d/security-headers.inc;
+    add_header Cache-Control "no-cache" always;
+  }
+  location = /mockServiceWorker.js {
+    include /etc/nginx/conf.d/security-headers.inc;
+    add_header Cache-Control "no-cache" always;
+  }
+  # SPA fallback for /how-it-works, /admin and shared links.
+  location / {
+    include /etc/nginx/conf.d/security-headers.inc;
+    try_files $uri /index.html;
+  }
 }
