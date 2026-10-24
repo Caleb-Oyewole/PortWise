@@ -17,7 +17,16 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.admin import audit
-from app.admin.auth import issue_token, require_admin, throttle_login, unauthorized, verify_password
+from app.admin.auth import (
+    check_login_allowed,
+    clear_login_failures,
+    issue_token,
+    record_login_failure,
+    require_admin,
+    unauthorized,
+    verify_dummy,
+    verify_password,
+)
 from app.config import LevyRates, _apply_rows, clear_rates_cache, get_levy_rates
 from app.database import get_db
 from app.errors import PortWiseError
@@ -65,10 +74,15 @@ def admin_json(admin: AdminUser) -> Dict[str, Any]:
 
 @router.post("/login")
 def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
-    throttle_login(request)
-    admin = db.query(AdminUser).filter(AdminUser.email == payload.email.strip().lower()).first()
+    email = payload.email.strip().lower()
+    check_login_allowed(request, email)
+    admin = db.query(AdminUser).filter(AdminUser.email == email).first()
+    if admin is None:
+        verify_dummy(payload.password)  # same work as a real check, so timing does not reveal accounts
     if admin is None or not verify_password(payload.password, admin.password_hash):
+        record_login_failure(request, email)
         raise unauthorized("That email and password do not match an admin account.")
+    clear_login_failures(email)
     admin.last_login_at = utcnow()
     db.commit()
     return {**issue_token(admin), "admin": admin_json(admin)}
