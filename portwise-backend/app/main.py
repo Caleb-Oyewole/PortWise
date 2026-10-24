@@ -7,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app import catalog, service
+from app.admin.auth import ensure_bootstrap_admin
+from app.admin.routes import router as admin_router
+from app.fx_provider import start_background_refresh, stop_background_refresh
 from app.config import CACHE_TTL_SECONDS, get_levy_rates
 from app.database import get_db
 from app.errors import PortWiseError, portwise_error_handler
@@ -23,9 +26,12 @@ async def lifespan(app: FastAPI):
     # A database that is down must not stop the process from answering / and /health.
     try:
         init_database()
+        ensure_bootstrap_admin()
     except Exception:
         log.exception("Database initialisation failed; continuing so the service can report health")
+    start_background_refresh()
     yield
+    stop_background_refresh()
 
 
 app = FastAPI(
@@ -36,6 +42,7 @@ app = FastAPI(
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
 app.include_router(catalog.router)
+app.include_router(admin_router)
 
 
 def _cors_origins() -> list[str]:

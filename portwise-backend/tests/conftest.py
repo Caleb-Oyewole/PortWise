@@ -6,6 +6,10 @@ _DB_FILE = os.path.join(tempfile.mkdtemp(prefix="portwise-test-"), "test.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{_DB_FILE}"
 os.environ["AUTO_SEED"] = "1"
 os.environ["AUTO_CREATE_TABLES"] = "1"
+os.environ["FX_AUTO_REFRESH"] = "0"  # never call the live FX provider from tests
+os.environ["PBKDF2_ITERATIONS"] = "1000"  # fast password hashing in tests
+for _var in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_TOKEN_SECRET"):
+    os.environ.pop(_var, None)
 os.environ.pop("PORTWISE_ACTIVE_REGIME", None)
 
 import pytest
