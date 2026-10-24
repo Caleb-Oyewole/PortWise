@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from app.database import SessionLocal, engine, Base, DATABASE_URL
-from app.models import HSCodeTariff, FXRate, LevyConfigRow  # noqa: F401  (LevyConfigRow registers the table)
+from app.models import AdminUser, AuditLog, FXRate, HSCodeTariff, LevyConfigRow  # noqa: F401  (registers every table)
 
 log = logging.getLogger("portwise.seed")
 
@@ -27,8 +27,31 @@ def init_database() -> None:
     """
     if _flag("AUTO_CREATE_TABLES", True):
         Base.metadata.create_all(bind=engine)
+    if _flag("AUTO_MIGRATE", True):
+        from app.migrations import upgrade
+        upgrade(engine)
     if _flag("AUTO_SEED", DATABASE_URL.startswith("sqlite")):
         seed_database()
+    if _flag("SEED_CATALOG", DATABASE_URL.startswith("sqlite")):
+        seed_catalog()
+
+
+CATALOG_CSV = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "tariffs_2026.csv")
+
+
+def seed_catalog() -> None:
+    """Load the researched tariff catalog (data/tariffs_2026.csv); existing identical rows are skipped."""
+    if not os.path.exists(CATALOG_CSV):
+        return
+    from app.admin.routes import run_import
+
+    db = SessionLocal()
+    try:
+        with open(CATALOG_CSV, encoding="utf8") as f:
+            report = run_import(db, f.read(), dry_run=False, admin_email="catalog seed")
+        log.info("Catalog seed: %s", report["counts"])
+    finally:
+        db.close()
 
 
 def seed_database():

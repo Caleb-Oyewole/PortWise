@@ -187,11 +187,10 @@ def test_future_tariff_not_yet_in_force(client, db):
 
 
 def test_latest_effective_tariff_wins(client, db):
-    # The unique constraint on `code` is a schema issue; here a second row is stored without the dot to
-    # show that the lookup picks the newest row in force, ignoring dots and case.
+    # Tariffs are versioned: a second row for the same code with a later effective_from wins.
     old = db.query(HSCodeTariff).filter(HSCodeTariff.code == "8517.12").first()
     old.effective_from = datetime.utcnow() - timedelta(days=30)
-    db.add(HSCodeTariff(code="851712", description="new", duty_rate_pct=10.0,
+    db.add(HSCodeTariff(code="8517.12", description="new", duty_rate_pct=10.0,
                         effective_from=datetime.utcnow() - timedelta(hours=1),
                         source_ref="NEW", hs_version="2022"))
     db.commit()
@@ -288,3 +287,18 @@ def test_multi_prohibited_line_blocks_shipment(client):
 
 def test_multi_empty_items_422(client):
     assert client.post("/api/v1/calculate/multi", json={"items": []}).status_code == 422
+
+
+# ---------- browser access ----------
+
+def test_cors_preflight_allows_browser_clients(client):
+    r = client.options(
+        "/api/v1/calculate",
+        headers={
+            "Origin": "https://portwise-web.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] in ("*", "https://portwise-web.example")

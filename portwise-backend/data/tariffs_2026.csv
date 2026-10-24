@@ -1,0 +1,33 @@
+code,description,category,keywords,duty_rate_pct,iat_rate_pct,prohibited,source_ref,hs_version
+8517.13,Smartphones,Phones and electronics,phone mobile iphone android samsung tecno infinix cellphone,10,5,no,"ECOWAS CET 2022-27, 8517130000 + SI29/2026 IAT (smart phones)",2022
+8471.30,Laptops and tablets,Phones and electronics,laptop computer notebook macbook ipad tablet,5,0,no,"ECOWAS CET 2022-27, 8471309000",2022
+8504.40,Chargers and power adapters,Phones and electronics,charger adapter usb power supply inverter,5,0,no,"ECOWAS CET 2022-27, 8504402000 / 8504409000",2022
+8518.30,Headphones and earbuds,Phones and electronics,earphones airpods headset earbuds,20,0,no,"ECOWAS CET 2022-27, 8518300000",2022
+8528.72,Televisions,Phones and electronics,tv television smart tv led screen,20,15,no,"ECOWAS CET 2022-27, 8528729000 + SI29/2026 IAT",2022
+8507.60,Lithium-ion batteries and power banks,Phones and electronics,battery powerbank power bank lithium,20,0,no,"ECOWAS CET 2022-27, 8507600000",2022
+8517.62,Routers and modems,Phones and electronics,router modem wifi mifi hotspot,10,0,no,"ECOWAS CET 2022-27, 8517620000",2022
+5208.52,"Printed cotton fabric (Ankara, wax print)",Textiles and fabric,ankara wax print cloth fabric cotton,20,0,no,"ECOWAS CET 2022-27, 5208521000 (wax)",2022
+5407.61,Polyester woven fabric,Textiles and fabric,polyester chiffon synthetic fabric cloth,20,0,no,"ECOWAS CET 2022-27, 5407610000",2022
+5804.21,Lace fabric,Textiles and fabric,lace george aso ebi fabric,20,0,no,"ECOWAS CET 2022-27, 5804210000",2022
+6109.10,Cotton T-shirts,Textiles and fabric,tshirt t-shirt tee shirts clothing,20,0,no,"ECOWAS CET 2022-27, 6109100000",2022
+6204.42,Women's cotton dresses,Textiles and fabric,gown dress clothing ready-made garments,20,0,no,"ECOWAS CET 2022-27, 6204420000",2022
+3304.99,Skincare creams and lotions,Cosmetics and beauty,cream lotion body moisturiser skincare,20,0,no,"ECOWAS CET 2022-27, 3304990000",2022
+3305.10,Shampoos,Cosmetics and beauty,shampoo hair wash,20,0,no,"ECOWAS CET 2022-27, 3305100000",2022
+3305.90,"Hair products (relaxers, pomades)",Cosmetics and beauty,relaxer hair cream pomade conditioner,20,0,no,"ECOWAS CET 2022-27, 3305900000",2022
+3303.00,Perfumes and fragrances,Cosmetics and beauty,perfume cologne fragrance scent body spray,20,0,no,"ECOWAS CET 2022-27, 3303001000/2000/9000",2022
+3304.10,Lip make-up,Cosmetics and beauty,lipstick lip gloss makeup,20,0,no,"ECOWAS CET 2022-27, 3304100000",2022
+8503.00,Generator and motor parts,Machine parts,generator alternator spare parts motor,5,0,no,"ECOWAS CET 2022-27, 8503000000",2022
+8413.70,Centrifugal water pumps,Machine parts,pump water pump borehole,5,0,no,"ECOWAS CET 2022-27, 8413700000",2022
+8482.10,Ball bearings,Machine parts,bearing bearings,10,0,no,"ECOWAS CET 2022-27, 8482100000",2022
+8409.99,Diesel engine parts,Machine parts,engine piston diesel parts,10,0,no,"ECOWAS CET 2022-27, 8409990000",2022
+8481.80,Valves and taps,Machine parts,valve tap plumbing,10,0,no,"ECOWAS CET 2022-27, 8481800000",2022
+8437.10,Grain cleaning and sorting machines,Machine parts,grain machine rice destoner agricultural,5,0,no,"ECOWAS CET 2022-27, 8437100000",2022
+6404.11,Sneakers and sports shoes,Footwear,sneakers trainers canvas sports shoes,20,0,no,"ECOWAS CET 2022-27, 6404119000",2022
+6403.99,Leather shoes,Footwear,leather shoes formal shoes,20,0,no,"ECOWAS CET 2022-27, 6403999000",2022
+6402.20,Slippers and sandals,Footwear,slippers slides flip flops sandals,20,0,no,"ECOWAS CET 2022-27, 6402209000",2022
+6403.91,Leather boots,Footwear,boots leather boots,20,0,no,"ECOWAS CET 2022-27, 6403919000",2022
+8708.30,Brake pads and brake parts,Vehicle spare parts,brake pads brakes car parts,10,25,no,"ECOWAS CET 2022-27, 8708300000 + SI29/2026 IAT",2022
+8708.80,Shock absorbers and suspension parts,Vehicle spare parts,shock absorber suspension car parts,10,0,no,"ECOWAS CET 2022-27, 8708800000",2022
+4011.10,Car tyres (new),Vehicle spare parts,tyre tire tyres wheels,10,0,no,"ECOWAS CET 2022-27, 4011100000",2022
+8511.10,Spark plugs,Vehicle spare parts,spark plug ignition,10,0,no,"ECOWAS CET 2022-27, 8511100000",2022
+8421.23,Engine oil filters,Vehicle spare parts,oil filter filter,5,0,no,"ECOWAS CET 2022-27, 8421230000",2022
