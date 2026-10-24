@@ -4,6 +4,7 @@ import { REGIME_NAME, type CalcRequest, type CalcResponse, type Regime, type Sce
 import { cn } from "@/lib/cn";
 import { formatDate, formatInt, formatNgn, formatPct, splitNgn } from "@/lib/format";
 import { shareUrl } from "@/lib/url-state";
+import { isDemoMode } from "@/lib/demo-mode";
 import { Skeleton } from "@/components/ui/primitives";
 import { GlossaryTerm } from "@/components/GlossaryTerm";
 import { ContainerBar, PART_COLORS, type Part } from "./ContainerBar";
@@ -243,6 +244,12 @@ function ResultView({
           )}
         </div>
 
+        {isDemoMode() && (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-pw-amber px-2.5 py-1 text-xs font-semibold text-pw-navy">
+            <TriangleAlert className="size-3.5" aria-hidden="true" />
+            Sample data, not live tariffs or rates
+          </p>
+        )}
         <div role="status" aria-live="polite" className="mt-1">
           <p aria-hidden="true" className="text-total-sm font-bold tracking-[-0.025em] text-pw-navy sm:text-total num">
             {whole}
