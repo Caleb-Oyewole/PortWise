@@ -410,6 +410,23 @@ def import_tariffs(payload: ImportIn, db: Session = Depends(get_db), admin: Admi
     return run_import(db, payload.csv, payload.dry_run, admin.email)
 
 
+class CatalogIn(BaseModel):
+    dry_run: bool = True
+
+
+@router.post("/tariffs/load-catalog")
+def load_catalog(payload: CatalogIn, db: Session = Depends(get_db), admin: AdminUser = Depends(require_admin)):
+    """Import the sourced tariff catalog shipped with the API (data/tariffs_2026.csv)."""
+    from app.seed import CATALOG_CSV
+
+    try:
+        with open(CATALOG_CSV, encoding="utf8") as f:
+            text = f.read()
+    except OSError:
+        raise not_found("The bundled tariff catalog is missing from this deployment.")
+    return run_import(db, text, payload.dry_run, admin.email)
+
+
 @router.get("/tariffs/template.csv")
 def csv_template(admin: AdminUser = Depends(require_admin)):
     from fastapi.responses import PlainTextResponse

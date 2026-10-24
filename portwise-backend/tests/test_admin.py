@@ -158,3 +158,12 @@ def test_shipped_catalog_imports_cleanly(client, db):
     calc = client.post("/api/v1/calculate", json={"hs_code": "8517.13", "fob_value": 3000000,
                                                   "currency": "NGN", "freight_insurance": 450000}).json()
     assert calc["tariff"]["duty_rate_pct"] == 10.0 and calc["tariff"]["source_ref"].startswith("ECOWAS CET")
+
+
+def test_load_bundled_catalog_from_admin(client, auth):
+    dry = client.post("/api/v1/admin/tariffs/load-catalog", json={"dry_run": True}, headers=auth).json()
+    assert dry["counts"].get("error", 0) == 0 and sum(dry["counts"].values()) == 32
+    done = client.post("/api/v1/admin/tariffs/load-catalog", json={"dry_run": False}, headers=auth).json()
+    assert done["counts"].get("new_code") == 30
+    again = client.post("/api/v1/admin/tariffs/load-catalog", json={"dry_run": True}, headers=auth).json()
+    assert again["counts"] == {"unchanged": 32}  # safe to run twice
