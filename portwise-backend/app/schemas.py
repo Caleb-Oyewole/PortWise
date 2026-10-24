@@ -1,39 +1,16 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-class CalculationRequest(BaseModel):
-    item_value: float = Field(..., gt=0, description="Value of the item in foreign currency")
-    currency: str = Field(default="USD", description="Currency code (e.g., USD, EUR, GBP)")
-    category_code: str = Field(..., description="HS Code or category identifier")
-    cif_freight_ngn: float = Field(default=0.0, ge=0, description="Optional freight cost in NGN")
-    cif_insurance_ngn: float = Field(default=0.0, ge=0, description="Optional insurance cost in NGN")
+class CalculateRequest(BaseModel):
+    hs_code: str = Field(..., description="HS Code or category identifier")
+    fob_value: float = Field(..., gt=0, description="Free on Board item value")
+    currency: str = Field(default="USD", description="Currency code")
+    freight_insurance: float = Field(default=0.0, ge=0, description="Shared freight and insurance in NGN")
+    regime: str = Field(default="legacy", description="Levy regime: 'legacy' or 'fob4'")
+    etls_applicable: bool = Field(default=True, description="Apply 0.5% ETLS levy")
+    origin_country: str = Field(default="US", description="Origin country code")
+    fx_rate_override: Optional[float] = Field(default=None, gt=0, description="Optional custom exchange rate override")
 
-class LeviesBreakdown(BaseModel):
-    ciss_rate_pct: float = 1.0
-    ciss_amount_ngn: float
-    etls_rate_pct: float = 0.5
-    etls_amount_ngn: float
-    category_levy_rate_pct: float = 0.0
-    category_levy_amount_ngn: float
-    total_levy_rate_pct: float
-    total_levy_amount_ngn: float
-
-class CalculationBreakdown(BaseModel):
-    item_value_original: float
-    currency: str
-    fx_rate_used: float
-    cif_value_ngn: float
-    duty_rate_pct: float
-    duty_amount_ngn: float
-    levies: LeviesBreakdown
-    vat_rate_pct: float = 7.5
-    vat_amount_ngn: float
-    total_landed_cost_ngn: float
-
-class CalculationResponse(BaseModel):
-    success: bool
-    data: CalculationBreakdown
-    
 class LineItem(BaseModel):
     item_id: str = Field(..., description="Unique identifier or SKU for the line item")
     hs_code: str = Field(..., description="HS Code for tariff lookup")
@@ -46,13 +23,3 @@ class MultiCalculateRequest(BaseModel):
     total_freight_insurance_ngn: float = Field(default=0.0, ge=0, description="Total shared freight and insurance in NGN")
     regime: str = Field(default="legacy", description="Levy regime: 'legacy' or 'fob4'")
     etls_applicable: bool = Field(default=True, description="Apply 0.5% ETLS levy")
-    
-class CalculateRequest(BaseModel):
-    hs_code: str = Field(..., description="HS Code or category identifier")
-    fob_value: float = Field(..., gt=0, description="Free on Board item value")
-    currency: str = Field(default="USD", description="Currency code")
-    freight_insurance: float = Field(default=0.0, ge=0, description="Shared freight and insurance in NGN")
-    regime: str = Field(default="legacy", description="Levy regime: 'legacy' or 'fob4'")
-    etls_applicable: bool = Field(default=True, description="Apply 0.5% ETLS levy")
-    origin_country: str = Field(default="US", description="Origin country code")
-    fx_rate_override: Optional[float] = Field(default=None, gt=0, description="Optional custom exchange rate override")
