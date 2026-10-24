@@ -73,7 +73,7 @@ await shot("9-activity");
 const calc = await ctx.newPage();
 await calc.goto(`${base}/`);
 await calc.getByRole("combobox", { name: /product or hs code/i }).fill("flash");
-await calc.getByRole("option", { name: /usb flash drives/i }).waitFor({ timeout: 15000 });
+await calc.getByRole("option", { name: new RegExp(`HS ${code.replace(".", "\\.")}`)}).waitFor({ timeout: 15000 });
 await calc.screenshot({ path: `${out}/admin-10-calculator-has-new-code.png` });
 console.log(`Added ${code}; calculator offers it.`);
 
