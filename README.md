@@ -127,7 +127,7 @@ A full adversarial review was run before submission, and every finding is fixed 
 - **Input and output:** all input is validated with Pydantic and Zod. All SQL goes through the ORM. API text renders as escaped React text, never raw HTML. Provider errors never echo the FX API key.
 - **Web:** strict Content-Security-Policy, `frame-ancestors 'none'` and X-Frame-Options, `nosniff`, Referrer-Policy, Permissions-Policy and HSTS on every response. `scripts/csp-check.mjs` proves the app runs under the policy.
 - **Supply chain and containers:**
-  - Pinned Python dependencies; `npm audit` and `pip-audit` both report 0 known vulnerabilities.
+  - Version-bounded Python dependencies and a locked npm tree; `npm audit` and `pip-audit` both report 0 known vulnerabilities.
   - Both containers run as non-root.
   - No build tools ship in the API image, and no secrets are in the repo or its history.
 - **Data protection:** no personal data is collected. Every admin change is audited with before and after values.

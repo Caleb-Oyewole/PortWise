@@ -1,7 +1,9 @@
-# Exact versions so builds are reproducible. Update deliberately (pip-audit before bumping).
-fastapi==0.162.0
-uvicorn[standard]==0.54.0
-pydantic==2.14.1
-sqlalchemy==2.1.6
-psycopg2-binary==2.9.13
-requests==2.34.2
+# Bounded ranges: the floors are the versions the first Rumpty deploy resolved, the ceilings
+# keep major releases out. Exact pins failed on Rumpty's package index, which does not
+# offer the newest releases. Run pip-audit before raising a ceiling.
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.28,<1.0
+pydantic>=2.6,<3.0
+sqlalchemy>=2.0.30,<2.1
+psycopg2-binary>=2.9,<3.0
+requests>=2.31,<3.0
