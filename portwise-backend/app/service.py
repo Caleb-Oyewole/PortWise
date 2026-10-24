@@ -74,6 +74,7 @@ class TariffInfo:
     source_ref: Optional[str]
     hs_version: str
     effective_from: datetime
+    category: Optional[str] = None
 
     @property
     def rate_version(self) -> str:
@@ -83,6 +84,7 @@ class TariffInfo:
         return {
             "code": self.code,
             "description": self.description,
+            "category": self.category,
             "duty_rate_pct": float(self.duty_rate_pct),
             "iat_rate_pct": float(self.iat_rate_pct),
             "prohibited": self.prohibited,
@@ -128,6 +130,7 @@ def find_tariff(db: Session, hs_code: str, on: datetime) -> TariffInfo:
         source_ref=row.source_ref,
         hs_version=row.hs_version,
         effective_from=row.effective_from,
+        category=row.category,
     )
 
 
@@ -292,6 +295,14 @@ class Line:
     fob_fc: Decimal
     fx: FxInfo
     origin: str
+    quantity: Optional[int] = None
+
+
+def per_unit(total_ngn: Decimal, quantity: Optional[int]) -> Optional[float]:
+    """Landed cost per unit, rounded half-up to the kobo; None when no quantity was given."""
+    if not quantity:
+        return None
+    return float(q(to_decimal(total_ngn) / Decimal(quantity)))
 
 
 def _evaluate(
@@ -315,6 +326,15 @@ def _evaluate(
             line_out.append({
                 "item_id": line.item_id,
                 "hs_code": line.hs_code,
+                "description": line.tariff.description,
+                "category": line.tariff.category,
+                "duty_rate_pct": float(line.tariff.duty_rate_pct),
+                "origin_country": line.origin,
+                "currency": line.fx.currency,
+                "fob_value_fc": float(line.fob_fc),
+                "fx_rate": float(line.fx.rate),
+                "quantity": line.quantity,
+                "per_unit_landed_cost_ngn": per_unit(b["total_landed_cost_ngn"], line.quantity),
                 "fob_value_ngn": float(fob),
                 "allocated_freight_insurance_ngn": float(share),
                 "rate_version": line.tariff.rate_version,
@@ -372,7 +392,8 @@ def calculate_single(db: Session, payload) -> Dict[str, Any]:
     warnings = check_prohibited([("This item", tariff, payload.origin_country)])
     fx = resolve_fx(db, payload.currency, rates, now, payload.fx_rate_override)
 
-    line = Line("item-1", tariff.code, tariff, to_decimal(payload.fob_value), fx, payload.origin_country)
+    line = Line("item-1", tariff.code, tariff, to_decimal(payload.fob_value), fx, payload.origin_country,
+                payload.quantity)
     base_fob = q(line.fob_fc * fx.rate)
     freight, freight_note = resolve_freight(payload.freight_insurance, base_fob, rates)
 
@@ -394,8 +415,15 @@ def calculate_single(db: Session, payload) -> Dict[str, Any]:
         "warnings": warnings + more_warnings,
         "assumptions": assumptions,
         "data": results[primary]["lines"][0]["breakdown"],
+        "quantity": payload.quantity,
+        "per_unit_landed_cost_ngn": results[primary]["lines"][0]["per_unit_landed_cost_ngn"],
         "scenarios": [
-            {"regime": r, "data": results[r]["lines"][0]["breakdown"]} for r in regimes
+            {
+                "regime": r,
+                "data": results[r]["lines"][0]["breakdown"],
+                "per_unit_landed_cost_ngn": results[r]["lines"][0]["per_unit_landed_cost_ngn"],
+            }
+            for r in regimes
         ],
         "sensitivity_analysis": _sensitivity([line], freight, primary, rates, payload.etls_applicable, shifts),
     }
@@ -421,12 +449,30 @@ def calculate_multi(db: Session, payload) -> Dict[str, Any]:
         tariffs[tariff.code] = tariff
         prohibited_entries.append((f"Item {item.item_id}", tariff, item.origin_country))
         lines.append(Line(item.item_id, tariff.code, tariff, to_decimal(item.fob_value_fc),
-                          fx_by_currency[item.currency], item.origin_country))
+                          fx_by_currency[item.currency], item.origin_country, item.quantity))
 
     warnings = check_prohibited(prohibited_entries)
 
     base_fob = sum((q(line.fob_fc * line.fx.rate) for line in lines), Decimal("0"))
-    freight, freight_note = resolve_freight(payload.total_freight_insurance_ngn, base_fob, rates)
+    freight_ngn = payload.total_freight_insurance_ngn
+    conversion_note: Optional[str] = None
+    if payload.total_freight_insurance is not None:
+        ccy = payload.freight_currency
+        if ccy not in fx_by_currency:
+            try:
+                fx_by_currency[ccy] = resolve_fx(db, ccy, rates, now)
+            except PortWiseError as exc:
+                raise PortWiseError(exc.code, f"Freight: {exc.message}", exc.status_code) from exc
+        freight_fx = fx_by_currency[ccy]
+        freight_ngn = q(to_decimal(payload.total_freight_insurance) * freight_fx.rate)
+        if ccy != "NGN":
+            conversion_note = (
+                f"Freight and insurance of {ccy} {to_decimal(payload.total_freight_insurance):,.2f} "
+                f"converted at \u20a6{freight_fx.rate:,.2f} = \u20a6{freight_ngn:,.2f}."
+            )
+    freight, freight_note = resolve_freight(freight_ngn, base_fob, rates)
+    if conversion_note:
+        freight_note = conversion_note
 
     results = _evaluate(lines, freight, regimes, rates, payload.etls_applicable)
     primary = _primary(results, regimes)
