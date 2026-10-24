@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+portwise.db
+.venv/
+tests/
+.git/
+.pytest_cache/

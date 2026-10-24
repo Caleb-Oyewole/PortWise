@@ -17,6 +17,18 @@ class HSCodeTariff(Base):
     source_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
     hs_version: Mapped[str] = mapped_column(String(20), default="2022")
 
+class LevyConfigRow(Base):
+    """Key / value overrides for levy rates and the active levy regime.
+
+    Edited from the admin panel; read by app.config with a short cache.
+    """
+    __tablename__ = "levy_config"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class FXRate(Base):
     __tablename__ = "fx_rates"
 

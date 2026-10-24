@@ -1,85 +1,150 @@
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, Any
+"""Landed-cost arithmetic.
 
-def round_currency(value: Decimal) -> float:
-    """Helper to round half-up to 2 decimal places and return as float for JSON."""
-    return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+Everything is exact ``Decimal`` maths; every charge is rounded half-up to kobo as
+it is calculated (PRD B8), and VAT and the totals are built from those rounded
+lines, so the numbers shown always add up.
+"""
+from __future__ import annotations
 
-def calculate_landed_cost_exact(
-    fob_value: float,
-    freight_insurance: float,
-    duty_rate_pct: float,
-    regime: str = "legacy",  # "legacy" or "fob4"
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Optional, Union
+
+from app.config import LevyRates
+
+Number = Union[Decimal, int, float, str]
+
+CENT = Decimal("0.01")
+HUNDRED = Decimal("100")
+SINGLE_REGIMES = ("legacy", "fob4")
+
+
+def to_decimal(value: Number) -> Decimal:
+    """Convert via str() so a float like 0.1 stays 0.1 rather than 0.1000000000000000055."""
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+
+def q(value: Decimal) -> Decimal:
+    """Round half-up to 2 decimal places."""
+    return value.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def round_currency(value: Number) -> float:
+    return float(q(to_decimal(value)))
+
+
+def normalize_regime(regime: str) -> str:
+    cleaned = (regime or "").strip().lower()
+    if cleaned not in SINGLE_REGIMES:
+        raise ValueError(f"Unknown levy regime {regime!r}; expected one of {SINGLE_REGIMES}")
+    return cleaned
+
+
+def _charge(name: str, base: Decimal, rate_pct: Decimal, amount: Decimal) -> Dict[str, Any]:
+    return {"name": name, "base": base, "rate_pct": rate_pct, "amount_ngn": amount}
+
+
+def compute_breakdown(
+    fob_value: Number,
+    freight_insurance: Number,
+    duty_rate_pct: Number,
+    regime: str = "legacy",
     etls_applicable: bool = True,
-    vat_rate_pct: float = 7.5
+    vat_rate_pct: Optional[Number] = None,
+    rates: Optional[LevyRates] = None,
 ) -> Dict[str, Any]:
-    """
-    Calculates import duty, levies, VAT, and total landed cost using exact Decimal arithmetic.
-    """
-    fob = Decimal(str(fob_value))
-    fi = Decimal(str(freight_insurance))
-    duty_rate = Decimal(str(duty_rate_pct)) / Decimal("100")
-    vat_rate = Decimal(str(vat_rate_pct)) / Decimal("100")
+    """Return the full breakdown with ``Decimal`` values (naira)."""
+    rates = rates or LevyRates()
+    regime = normalize_regime(regime)
 
-    # 1. CIF Value
-    cif = fob + fi
+    fob = q(to_decimal(fob_value))
+    freight = q(to_decimal(freight_insurance))
+    duty_rate = to_decimal(duty_rate_pct)
+    vat_rate = to_decimal(vat_rate_pct) if vat_rate_pct is not None else rates.vat_pct
 
-    # 2. Import Duty
-    duty_amount = cif * duty_rate
+    cif = fob + freight
+    duty = q(cif * duty_rate / HUNDRED)
 
-    # 3. Levies & Surcharges based on Regime
-    charges = []
-    charges.append({"name": "CIF Value", "base": round_currency(cif), "rate_pct": 0.0, "amount_ngn": round_currency(cif)})
-    charges.append({"name": "Import Duty", "base": round_currency(cif), "rate_pct": float(duty_rate_pct), "amount_ngn": round_currency(duty_amount)})
+    charges: List[Dict[str, Any]] = [
+        _charge("CIF Value", cif, Decimal("0"), cif),
+        _charge("Import Duty", cif, duty_rate, duty),
+    ]
+    levies = Decimal("0")
 
-    total_levies = Decimal("0.00")
+    if regime == "legacy":
+        surcharge = q(duty * rates.surcharge_pct / HUNDRED)
+        charges.append(_charge("Surcharge", duty, rates.surcharge_pct, surcharge))
+        ciss = q(fob * rates.ciss_pct / HUNDRED)
+        charges.append(_charge("CISS", fob, rates.ciss_pct, ciss))
+        levies += surcharge + ciss
+    else:  # fob4 replaces CISS and the surcharge
+        fob_charge = q(fob * rates.fob_charge_pct / HUNDRED)
+        charges.append(_charge("FOB Charge", fob, rates.fob_charge_pct, fob_charge))
+        levies += fob_charge
 
-    if regime.lower() == "legacy":
-        # Surcharge (7% of duty)
-        surcharge_rate = Decimal("7.0")
-        surcharge_amount = duty_amount * (surcharge_rate / Decimal("100"))
-        charges.append({"name": "Surcharge", "base": round_currency(duty_amount), "rate_pct": float(surcharge_rate), "amount_ngn": round_currency(surcharge_amount)})
-        total_levies += surcharge_amount
-
-        # CISS (1% of FOB)
-        ciss_rate = Decimal("1.0")
-        ciss_amount = fob * (ciss_rate / Decimal("100"))
-        charges.append({"name": "CISS", "base": round_currency(fob), "rate_pct": float(ciss_rate), "amount_ngn": round_currency(ciss_amount)})
-        total_levies += ciss_amount
-
-    elif regime.lower() == "fob4":
-        # FOB charge (4% of FOB) - replaces CISS & surcharge
-        fob_charge_rate = Decimal("4.0")
-        fob_charge_amount = fob * (fob_charge_rate / Decimal("100"))
-        charges.append({"name": "FOB Charge", "base": round_currency(fob), "rate_pct": float(fob_charge_rate), "amount_ngn": round_currency(fob_charge_amount)})
-        total_levies += fob_charge_amount
-
-    # ETLS (0.5% of CIF) - on by default, switchable via config flag
-    etls_amount = Decimal("0.00")
     if etls_applicable:
-        etls_rate = Decimal("0.5")
-        etls_amount = cif * (etls_rate / Decimal("100"))
-        charges.append({"name": "ETLS", "base": round_currency(cif), "rate_pct": float(etls_rate), "amount_ngn": round_currency(etls_amount)})
-        total_levies += etls_amount
+        etls = q(cif * rates.etls_pct / HUNDRED)
+        charges.append(_charge("ETLS", cif, rates.etls_pct, etls))
+        levies += etls
 
-    # 4. VAT Base = CIF + Duty + Levies
-    vat_base = cif + duty_amount + total_levies
-    vat_amount = vat_base * vat_rate
-
-    total_charges = duty_amount + total_levies + vat_amount
-    total_landed_cost = cif + total_charges
+    vat_base = cif + duty + levies
+    vat = q(vat_base * vat_rate / HUNDRED)
+    total_charges = duty + levies + vat
 
     return {
-        "regime": regime.lower(),
-        "cif_value_ngn": round_currency(cif),
-        "duty_amount_ngn": round_currency(duty_amount),
-        "total_levies_ngn": round_currency(total_levies),
-        "vat_amount_ngn": round_currency(vat_amount),
-        "total_landed_cost_ngn": round_currency(total_landed_cost),
-        "charges": charges
+        "regime": regime,
+        "cif_value_ngn": cif,
+        "duty_amount_ngn": duty,
+        "total_levies_ngn": levies,
+        "vat_base_ngn": vat_base,
+        "vat_rate_pct": vat_rate,
+        "vat_amount_ngn": vat,
+        "total_charges_ngn": total_charges,
+        "total_landed_cost_ngn": cif + total_charges,
+        "charges": charges,
     }
-    
-# Backward compatibility alias to resolve ImportError
+
+
+def breakdown_to_json(breakdown: Dict[str, Any]) -> Dict[str, Any]:
+    """Turn the Decimal breakdown into JSON-friendly floats (exact to kobo)."""
+    out: Dict[str, Any] = {}
+    for key, value in breakdown.items():
+        if key == "charges":
+            out[key] = [
+                {
+                    "name": c["name"],
+                    "base": float(c["base"]),
+                    "rate_pct": float(c["rate_pct"]),
+                    "amount_ngn": float(c["amount_ngn"]),
+                }
+                for c in value
+            ]
+        elif isinstance(value, Decimal):
+            out[key] = float(value)
+        else:
+            out[key] = value
+    return out
+
+
+def calculate_landed_cost_exact(
+    fob_value: Number,
+    freight_insurance: Number,
+    duty_rate_pct: Number,
+    regime: str = "legacy",
+    etls_applicable: bool = True,
+    vat_rate_pct: Optional[Number] = None,
+    rates: Optional[LevyRates] = None,
+) -> Dict[str, Any]:
+    """Same signature as before; returns floats. Rates default to ``LevyRates()``."""
+    return breakdown_to_json(
+        compute_breakdown(
+            fob_value, freight_insurance, duty_rate_pct, regime, etls_applicable, vat_rate_pct, rates
+        )
+    )
+
+
+# Backward compatibility with the Day 1 signature.
 def calculate_landed_cost(
     item_value: float,
     fx_rate: float,
@@ -87,15 +152,14 @@ def calculate_landed_cost(
     category_levy_rate_pct: float = 0.0,
     freight_ngn: float = 0.0,
     insurance_ngn: float = 0.0,
-    vat_rate_pct: float = 7.5
+    vat_rate_pct: float = 7.5,
 ) -> Dict[str, Any]:
-    """Legacy wrapper mapping old signature to exact decimal calculator."""
-    fob = item_value * fx_rate
+    fob = to_decimal(item_value) * to_decimal(fx_rate)
     return calculate_landed_cost_exact(
         fob_value=fob,
-        freight_insurance=freight_ngn + insurance_ngn,
+        freight_insurance=to_decimal(freight_ngn) + to_decimal(insurance_ngn),
         duty_rate_pct=duty_rate_pct,
         regime="legacy",
         etls_applicable=True,
-        vat_rate_pct=vat_rate_pct
+        vat_rate_pct=vat_rate_pct,
     )
