@@ -13,6 +13,7 @@ PortWise estimates the landed cost of imports into Nigeria: duty, statutory levi
   - `app/errors.py` - business-rule errors
   - `tests/` - unit, API and independent-oracle tests
   - `scripts/crosscheck.py` - builds a CSV for checking results against the NTIP calculator
+- `portwise-frontend/` - React calculator UI (see `portwise-frontend/README.md`)
 - `render.yaml` - deployment configuration for Render
 
 ## Run locally
@@ -88,3 +89,15 @@ A key/value table that overrides the defaults; changes show within 60 seconds.
 ## Data caveat
 
 The seeded tariff rows and FX rates are development samples, not verified data. Seeded FX rows are labelled `PLACEHOLDER` and the API warns on them. Replace both with verified data before real use.
+## Frontend
+
+The calculator UI lives in `portwise-frontend/` (Vite, React and TypeScript). 
+
+```bash
+cd portwise-frontend
+npm install
+cp .env.example .env
+npm run dev   # http://localhost:5173
+```
+
+See `portwise-frontend/README.md` for the API contract the UI expects, demo mode and deployment.

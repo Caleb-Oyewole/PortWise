@@ -1,0 +1,108 @@
+/* Design tokens: the single source of truth (Frontend guide §4.9).
+   Share a copy with the Laravel admin so both surfaces match. */
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora Variable", "Sora", "Inter Variable", ui-sans-serif, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+
+  --color-pw-navy: #0b2545;
+  --color-pw-navy-800: #12325c;
+  --color-pw-navy-700: #1b4170;
+  --color-pw-blue: #1d5fd1;
+  --color-pw-blue-700: #174ca8;
+  --color-pw-green: #087f4f;
+  --color-pw-amber: #f5b700;
+  --color-pw-amber-edge: #b07a00;
+  --color-pw-amber-text: #8a5a00;
+  --color-pw-coral: #c93b31;
+  --color-pw-violet: #6d4ae0;
+
+  --color-pw-bg: #f7f9fc;
+  --color-pw-card: #ffffff;
+  --color-pw-border: #dde4ee;
+  --color-pw-input: #7f90a8; /* 3.2:1 on white, meets non-text contrast */
+  --color-pw-muted: #51627a;
+  --color-pw-text: #0b1a30;
+  --color-pw-on-navy: #c5d3e6;
+
+  --color-pw-blue-50: #eaf1fd;
+  --color-pw-green-50: #f0faf5;
+  --color-pw-amber-50: #fff6d6;
+  --color-pw-coral-50: #fef3f2;
+  --color-pw-violet-50: #f1eefd;
+
+  --radius-input: 8px;
+  --radius-button: 10px;
+  --radius-card: 14px;
+
+  --shadow-card: 0 1px 2px rgb(11 37 69 / 6%), 0 8px 24px rgb(11 37 69 / 8%);
+  --shadow-pop: 0 2px 4px rgb(11 37 69 / 8%), 0 16px 40px rgb(11 37 69 / 16%);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+  --text-display-sm: 1.875rem;
+  --text-display-sm--line-height: 2.25rem;
+  --text-total: 2.75rem;
+  --text-total--line-height: 3rem;
+  --text-total-sm: 2.25rem;
+  --text-total-sm--line-height: 2.5rem;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-pw-text);
+    background: var(--color-pw-bg);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-pw-blue);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-pw-blue-50);
+    color: var(--color-pw-navy);
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv11";
+}
+
+@utility sr-only-focusable {
+  &:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
