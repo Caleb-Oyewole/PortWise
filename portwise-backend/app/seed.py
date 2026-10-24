@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from app.database import SessionLocal, engine, Base, DATABASE_URL
-from app.models import HSCodeTariff, FXRate, LevyConfigRow  # noqa: F401  (LevyConfigRow registers the table)
+from app.models import AdminUser, AuditLog, FXRate, HSCodeTariff, LevyConfigRow  # noqa: F401  (registers every table)
 
 log = logging.getLogger("portwise.seed")
 
