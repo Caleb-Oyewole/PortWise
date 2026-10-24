@@ -23,7 +23,10 @@ from app.database import Base, SessionLocal, engine
 
 @pytest.fixture(autouse=True)
 def _fresh_cache():
+    from app.limits import reset_rate_limit
+
     clear_rates_cache()
+    reset_rate_limit()
     yield
     clear_rates_cache()
 

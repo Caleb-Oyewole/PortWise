@@ -103,3 +103,49 @@ def test_client_ip_uses_the_proxy_appended_hop():
         client = None
 
     assert auth.client_ip(Req()) == "9.9.9.9"
+
+
+# ---------- public API limits ----------
+
+ONE_LINE = {"item_id": "A", "hs_code": "8517.12", "fob_value_fc": 100, "currency": "NGN"}
+
+
+def test_shipments_are_capped_at_50_lines(client):
+    ok = client.post("/api/v1/calculate/multi", json={"items": [ONE_LINE] * 50, "total_freight_insurance_ngn": 0})
+    assert ok.status_code == 200
+    too_many = client.post("/api/v1/calculate/multi", json={"items": [ONE_LINE] * 51})
+    assert too_many.status_code == 422
+
+
+def test_echoed_text_fields_are_length_limited(client):
+    r = client.post("/api/v1/calculate/multi", json={"items": [{**ONE_LINE, "item_id": "x" * 65}]})
+    assert r.status_code == 422
+    r = client.post("/api/v1/calculate", json={"hs_code": "8517.12", "fob_value": 1, "origin_country": "y" * 11})
+    assert r.status_code == 422
+
+
+def test_oversized_bodies_get_413(client):
+    big = {"items": [ONE_LINE], "padding": "x" * 70_000}
+    r = client.post("/api/v1/calculate/multi", json=big)
+    assert r.status_code == 413 and r.json()["code"] == "payload_too_large"
+
+
+def test_calculations_are_rate_limited_per_client(client, monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "3")
+    body = {"hs_code": "8517.12", "fob_value": 1, "currency": "NGN"}
+    for _ in range(3):
+        assert client.post("/api/v1/calculate", json=body).status_code == 200
+    r = client.post("/api/v1/calculate", json=body)
+    assert r.status_code == 429 and r.json()["code"] == "rate_limited" and "retry-after" in r.headers
+    # Reads and other clients are unaffected.
+    assert client.get("/api/v1/hs-codes").status_code == 200
+    other = client.post("/api/v1/calculate", json=body, headers={"X-Forwarded-For": "198.51.100.9"})
+    assert other.status_code == 200
+
+
+def test_rate_limited_response_still_carries_cors_headers(client, monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "1")
+    body = {"hs_code": "8517.12", "fob_value": 1, "currency": "NGN"}
+    client.post("/api/v1/calculate", json=body, headers={"Origin": "https://web.example"})
+    r = client.post("/api/v1/calculate", json=body, headers={"Origin": "https://web.example"})
+    assert r.status_code == 429 and r.headers.get("access-control-allow-origin")

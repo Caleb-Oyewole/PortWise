@@ -134,7 +134,7 @@ export function CalculatorPage() {
             form.setError(`items.${index}.${field}`, { type: "server", message: describeError(e).title }, { shouldFocus: source !== "live" });
           }
           if (e.code === "unknown_hs_code") catalog.refetch();
-          if (e.code === "RATE_LIMITED") {
+          if (e.code === "RATE_LIMITED" || e.code === "rate_limited") {
             setCooldown(true);
             setTimeout(() => setCooldown(false), 5000);
           }

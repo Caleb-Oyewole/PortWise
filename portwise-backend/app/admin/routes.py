@@ -308,6 +308,7 @@ def retire_tariff(tariff_id: int, db: Session = Depends(get_db), admin: AdminUse
 
 # ---------- CSV import ----------
 
+MAX_IMPORT_ROWS = 5_000
 CSV_COLUMNS = ("code", "description", "category", "keywords", "duty_rate_pct", "iat_rate_pct",
                "prohibited", "source_ref", "hs_version", "effective_from")
 TRUE_WORDS = {"1", "true", "yes", "y"}
@@ -377,6 +378,8 @@ def run_import(db: Session, text: str, dry_run: bool, admin_email: Optional[str]
         raise bad_request("invalid_csv", f"The CSV needs these columns: {', '.join(missing)}. "
                                          f"Allowed columns: {', '.join(CSV_COLUMNS)}.")
     reader.fieldnames = headers
+    if text.count(chr(10)) > MAX_IMPORT_ROWS + 1:  # rough row count before parsing
+        raise bad_request("invalid_csv", f"Import at most {MAX_IMPORT_ROWS:,} rows at a time; split the file.")
     results: List[Dict[str, Any]] = []
     seen: set = set()
     added = 0
