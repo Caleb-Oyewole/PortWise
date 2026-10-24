@@ -348,14 +348,14 @@ def _same_as_current(db: Session, data: TariffIn) -> bool:
     )
 
 
-@router.post("/tariffs/import")
-def import_tariffs(payload: ImportIn, db: Session = Depends(get_db), admin: AdminUser = Depends(require_admin)):
+def run_import(db: Session, text: str, dry_run: bool, admin_email: Optional[str]) -> Dict[str, Any]:
     """Validate a CSV of tariff lines; unless dry_run, add every valid line in one transaction.
 
-    Invalid rows are reported and skipped; valid rows are committed (Backend doc §13).
-    A row identical to the rate already in force is reported as unchanged.
+    Invalid rows are reported and skipped; valid rows are committed (Backend doc section 13).
+    A row identical to the rate already in force is reported as unchanged. Used by the
+    admin endpoint, scripts/load_catalog.py and local seeding.
     """
-    text = payload.csv.lstrip("﻿")
+    text = text.lstrip("\ufeff")
     reader = csv.DictReader(io.StringIO(text))
     headers = [h.strip().lower() for h in (reader.fieldnames or [])]
     missing = [c for c in ("code", "description", "duty_rate_pct") if c not in headers]
@@ -378,34 +378,36 @@ def import_tariffs(payload: ImportIn, db: Session = Depends(get_db), admin: Admi
             if _same_as_current(db, data):
                 results.append({"row": number, "code": data.code, "status": "unchanged"})
                 continue
-            if payload.dry_run:
+            existing = bool(_versions(db, data.code))
+            if dry_run:
                 reason = unsupported_reason(data.code)
                 if reason:
                     raise ValueError(reason)
-                existing = _versions(db, data.code)
-                results.append({"row": number, "code": data.code,
-                                "status": "new_rate" if existing else "new_code",
-                                "duty_rate_pct": float(data.duty_rate_pct)})
             else:
-                existing = bool(_versions(db, data.code))
                 with db.begin_nested():
-                    create_version(db, data, admin.email, action="import")
+                    create_version(db, data, admin_email, action="import")
                 added += 1
-                results.append({"row": number, "code": data.code, "status": "new_rate" if existing else "new_code",
-                                "duty_rate_pct": float(data.duty_rate_pct)})
+            results.append({"row": number, "code": data.code, "status": "new_rate" if existing else "new_code",
+                            "duty_rate_pct": float(data.duty_rate_pct)})
         except (ValueError, PortWiseError) as exc:
             message = exc.message if isinstance(exc, PortWiseError) else str(exc)
             if hasattr(exc, "errors"):  # pydantic ValidationError
                 message = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors())
             results.append({"row": number, "code": code, "status": "error", "message": message})
-    if not payload.dry_run and added:
-        audit.record(db, admin.email, "hs_codes", "import", None, f"CSV import: {added} tariff lines added",
+    if not dry_run and added:
+        audit.record(db, admin_email, "hs_codes", "import", None, f"CSV import: {added} tariff lines added",
                      after={"rows": len(results), "added": added})
         db.commit()
     counts: Dict[str, int] = {}
     for r in results:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-    return {"dry_run": payload.dry_run, "counts": counts, "rows": results}
+    return {"dry_run": dry_run, "counts": counts, "rows": results}
+
+
+@router.post("/tariffs/import")
+def import_tariffs(payload: ImportIn, db: Session = Depends(get_db), admin: AdminUser = Depends(require_admin)):
+    """Import tariff lines from CSV text (see run_import)."""
+    return run_import(db, payload.csv, payload.dry_run, admin.email)
 
 
 @router.get("/tariffs/template.csv")
