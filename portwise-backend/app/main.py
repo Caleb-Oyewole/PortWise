@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app import service
@@ -34,6 +35,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
+
+
+def _cors_origins() -> list[str]:
+    """CORS_ORIGINS is a comma-separated list; "*" (the default) allows any site.
+
+    The public API holds no user data and the admin API uses bearer tokens, not
+    cookies, so allowing any origin is safe; set the list to lock it down.
+    """
+    raw = os.getenv("CORS_ORIGINS", "*").strip()
+    return ["*"] if raw in ("", "*") else [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
+)
 
 
 @app.get("/")

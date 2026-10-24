@@ -288,3 +288,18 @@ def test_multi_prohibited_line_blocks_shipment(client):
 
 def test_multi_empty_items_422(client):
     assert client.post("/api/v1/calculate/multi", json={"items": []}).status_code == 422
+
+
+# ---------- browser access ----------
+
+def test_cors_preflight_allows_browser_clients(client):
+    r = client.options(
+        "/api/v1/calculate",
+        headers={
+            "Origin": "https://portwise-web.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] in ("*", "https://portwise-web.example")
