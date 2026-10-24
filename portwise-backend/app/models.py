@@ -1,14 +1,23 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Float, Boolean, DateTime, Integer
+from sqlalchemy import String, Float, Boolean, DateTime, Integer, UniqueConstraint
 from datetime import datetime
 from app.database import Base
 
 class HSCodeTariff(Base):
+    """One tariff version for an HS code.
+
+    A rate change is a new row with a later ``effective_from``; the previous row is
+    end-dated, so history is kept. Hence (code, effective_from) is unique, not code.
+    """
     __tablename__ = "hs_codes"
+    __table_args__ = (UniqueConstraint("code", "effective_from", name="uq_hs_codes_code_effective_from"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     description: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Grouping and search terms for the product picker (e.g. "Phones and electronics", "iphone android").
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    keywords: Mapped[str | None] = mapped_column(String(255), nullable=True)
     duty_rate_pct: Mapped[float] = mapped_column(Float, nullable=False)
     iat_rate_pct: Mapped[float] = mapped_column(Float, default=0.0)
     prohibited: Mapped[bool] = mapped_column(Boolean, default=False)

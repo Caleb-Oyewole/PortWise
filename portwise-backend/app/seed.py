@@ -27,6 +27,9 @@ def init_database() -> None:
     """
     if _flag("AUTO_CREATE_TABLES", True):
         Base.metadata.create_all(bind=engine)
+    if _flag("AUTO_MIGRATE", True):
+        from app.migrations import upgrade
+        upgrade(engine)
     if _flag("AUTO_SEED", DATABASE_URL.startswith("sqlite")):
         seed_database()
 
