@@ -29,8 +29,8 @@ def test_fob4_reference_case():
     
     assert result["cif_value_ngn"] == 3450000.0
     assert result["duty_amount_ngn"] == 690000.0
-    assert result["vat_amount_ngn"] == 320793.75
-    assert result["total_landed_cost_ngn"] == 4598043.75
+    assert result["vat_amount_ngn"] == 324416.25
+    assert result["total_landed_cost_ngn"] == 4649966.25
 
 # ---------- extended cases ----------
 from app.calculator import compute_breakdown, normalize_regime
@@ -54,9 +54,37 @@ def test_legacy_reference_full_lines():
 def test_fob4_reference_full_lines():
     r = calculate_landed_cost_exact(3000000, 450000, 20, "fob4", True)
     lines = _names(r)
-    assert lines["FOB Charge"] == 120000.0
-    assert "CISS" not in lines and "Surcharge" not in lines
-    assert r["total_charges_ngn"] == 1148043.75
+    assert lines["FOB Charge"] == 120000.0   # 4% of FOB
+    assert lines["Surcharge"] == 48300.0     # 7% of 690,000: still applies, as on the NSW calculator
+    assert lines["ETLS"] == 17250.0
+    assert "CISS" not in lines               # the FOB charge replaces CISS only
+    assert r["total_levies_ngn"] == 185550.0
+    assert r["total_charges_ngn"] == 1199966.25
+
+
+def test_matches_nsw_official_calculator():
+    """Two runs of the official NSW duty calculator on 25 Oct 2026.
+
+    1,000 USD FOB + 100 USD freight at NSW's rate (CIF NGN 1,497,473.34), phones
+    code 9903100004 (5% duty) and a 10% code. NSW rounds VAT and its total
+    differently by at most one kobo, so those two are compared with a tolerance.
+    """
+    fob, freight = Decimal("1361339.40"), Decimal("136133.94")
+    five = _names(compute_breakdown(fob, freight, Decimal("5"), "fob4", True))
+    assert five["Import Duty"] == Decimal("74873.67")
+    assert five["Surcharge"] == Decimal("5241.16")
+    assert five["FOB Charge"] == Decimal("54453.58")
+    assert five["ETLS"] == Decimal("7487.37")
+    r5 = compute_breakdown(fob, freight, Decimal("5"), "fob4", True)
+    assert abs(r5["vat_amount_ngn"] - Decimal("122964.68")) <= Decimal("0.01")
+    assert abs(r5["total_charges_ngn"] - Decimal("265020.45")) <= Decimal("0.01")
+
+    r10 = compute_breakdown(fob, freight, Decimal("10"), "fob4", True)
+    ten = _names(r10)
+    assert ten["Import Duty"] == Decimal("149747.33")
+    assert ten["Surcharge"] == Decimal("10482.31")
+    assert abs(r10["vat_amount_ngn"] - Decimal("128973.29")) <= Decimal("0.01")
+    assert abs(r10["total_charges_ngn"] - Decimal("351143.88")) <= Decimal("0.01")
 
 
 def test_zero_duty_still_has_levies_and_vat():

@@ -43,7 +43,7 @@ LEVY_KEYS = (
 )
 LEVY_LABELS = {
     "active_regime": "Levy regime shown to users",
-    "surcharge_pct": "Customs surcharge (% of duty, legacy regime)",
+    "surcharge_pct": "Customs surcharge (% of duty, both regimes)",
     "ciss_pct": "CISS (% of FOB, legacy regime)",
     "fob_charge_pct": "FOB charge (% of FOB, 4% regime)",
     "etls_pct": "ETLS (% of CIF)",

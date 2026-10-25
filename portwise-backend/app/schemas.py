@@ -43,7 +43,7 @@ class CalculateRequest(BaseModel):
     )
     regime: Optional[RegimeChoice] = Field(
         default=None,
-        description="'legacy' (1% CISS + 7% surcharge), 'fob4' (4% FOB charge) or 'both'. "
+        description="'legacy' (1% CISS + 7% surcharge), 'fob4' (4% FOB charge + 7% surcharge, no CISS) or 'both'. "
                     "Omit to use the admin-configured default.",
     )
     etls_applicable: bool = Field(default=True, description="Apply the 0.5% ETLS levy")
