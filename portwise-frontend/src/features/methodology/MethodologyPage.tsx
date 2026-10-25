@@ -23,15 +23,15 @@ const STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Apply import duty",
-    body: "A percentage of the customs value, set by the product's HS code in the ECOWAS Common External Tariff.",
+    body: "A percentage of the customs value, set by the product's HS code in the ECOWAS Common External Tariff. Some codes also carry an Import Adjustment Tax (IAT), a further percentage of the customs value.",
   },
   {
     title: "Add the levies",
-    body: "Either the 7% surcharge on duty plus the 1% CISS on the goods, or the 4% FOB charge in their place, plus the ECOWAS trade levy (ETLS) on the customs value.",
+    body: "The 7% surcharge on duty, then either the 1% CISS on the goods or the 4% FOB charge in its place, plus the ECOWAS trade levy (ETLS) on the customs value.",
   },
   {
     title: "Add VAT",
-    body: "VAT is charged on the customs value plus duty plus levies. Adding it gives the landed cost.",
+    body: "VAT is charged on the customs value plus duty plus levies. IAT is not part of the VAT base. Adding VAT and any IAT gives the landed cost.",
   },
 ];
 
@@ -91,7 +91,7 @@ export function MethodologyPage() {
                 <tbody>
                   {(
                     [
-                      ["Customs surcharge", `${formatPct(rates.surcharge_pct)} of import duty`, REGIME_NAME.legacy],
+                      ["Customs surcharge", `${formatPct(rates.surcharge_pct)} of import duty`, "Both"],
                       ["Import supervision levy (CISS)", `${formatPct(rates.ciss_pct)} of goods value`, REGIME_NAME.legacy],
                       ["FOB charge", `${formatPct(rates.fob_charge_pct)} of goods value`, REGIME_NAME.fob4],
                       ["ECOWAS trade levy (ETLS)", `${formatPct(rates.etls_pct)} of customs value`, "Both"],
@@ -180,7 +180,7 @@ export function MethodologyPage() {
           <ul className="mt-5 list-disc space-y-2 pl-5 leading-7 text-pw-muted marker:text-pw-input">
             <li>Not an official customs assessment. Final charges are set by the Nigeria Customs Service at clearing.</li>
             <li>Not a freight quote. Freight is what you enter, or a stated assumption.</li>
-            <li>Import Adjustment Tax is flagged but not yet added, because its calculation basis is unconfirmed.</li>
+            <li>Import Adjustment Tax is charged on the customs value for the codes that carry it, and is left out of the VAT base, as on the NSW calculator.</li>
             <li>Vehicles, alcohol and tobacco have extra duties and are not estimated.</li>
             <li>No accounts and nothing stored. Your shipment stays in your browser and in the links you share.</li>
           </ul>

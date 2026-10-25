@@ -10,8 +10,8 @@ import { formatWhen, PageHeader, Panel } from "./ui";
 
 const REGIMES = [
   { value: "both", label: "Compare both", hint: "Show both and lead with the higher. Recommended while the 4% FOB charge is uncertain." },
-  { value: "legacy", label: REGIME_NAME.legacy, hint: "7% surcharge on duty plus 1% CISS on the goods value." },
-  { value: "fob4", label: REGIME_NAME.fob4, hint: "4% of the goods value replaces CISS and the surcharge." },
+  { value: "legacy", label: REGIME_NAME.legacy, hint: "1% CISS on the goods value, plus the 7% surcharge on duty." },
+  { value: "fob4", label: REGIME_NAME.fob4, hint: "4% of the goods value replaces CISS. The 7% surcharge on duty still applies." },
 ];
 
 export function LeviesPage() {

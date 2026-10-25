@@ -40,7 +40,7 @@ function LineMath({ line, fx }: { line: LineResult; fx: FxUsed[] }) {
   });
   steps.push({
     name: "Landed cost",
-    working: `${formatNgn(b.cif_value_ngn)} customs value + ${formatNgn(b.total_charges_ngn)} duty, levies and VAT`,
+    working: `${formatNgn(b.cif_value_ngn)} customs value + ${formatNgn(b.total_charges_ngn)} duty, ${b.iat_amount_ngn ? "IAT, " : ""}levies and VAT`,
     result: b.total_landed_cost_ngn,
   });
 

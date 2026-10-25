@@ -6,6 +6,7 @@ import { PART_COLORS } from "./ContainerBar";
 const CHARGE_INFO: Record<string, { label: string; base: string; part: keyof typeof PART_COLORS }> = {
   "CIF Value": { label: "Customs value (CIF)", base: "", part: "cif" },
   "Import Duty": { label: "Import duty", base: "customs value", part: "duty" },
+  IAT: { label: "Import adjustment tax (IAT)", base: "customs value", part: "duty" },
   Surcharge: { label: "Customs surcharge", base: "import duty", part: "levies" },
   CISS: { label: "Import supervision levy (CISS)", base: "goods value", part: "levies" },
   "FOB Charge": { label: "FOB charge", base: "goods value", part: "levies" },

@@ -74,6 +74,7 @@ export const handlers = [
         description: hs.description,
         category: hs.category,
         duty_pct: hs.duty_rate_pct,
+        iat_pct: hs.iat_rate_pct ?? 0,
         fob_fc: q(it.unit_value * it.quantity),
         currency: it.currency,
         fx,
