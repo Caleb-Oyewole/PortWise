@@ -28,7 +28,7 @@ def test_reference_case_legacy(client):
 
 def test_reference_case_fob4(client):
     body = post(client, {**REF, "regime": "fob4"}).json()
-    assert body["data"]["total_landed_cost_ngn"] == 4598043.75
+    assert body["data"]["total_landed_cost_ngn"] == 4649966.25
 
 
 def test_default_regime_shows_both_and_headline_is_higher(client):
@@ -36,7 +36,7 @@ def test_default_regime_shows_both_and_headline_is_higher(client):
     assert body["regime"] == "both"
     assert [s["regime"] for s in body["scenarios"]] == ["legacy", "fob4"]
     assert body["primary_regime"] == "fob4"
-    assert body["data"]["total_landed_cost_ngn"] == 4598043.75
+    assert body["data"]["total_landed_cost_ngn"] == 4649966.25
     assert any("Both levy regimes" in a for a in body["assumptions"])
 
 

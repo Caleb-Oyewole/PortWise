@@ -72,13 +72,17 @@ def compute_breakdown(
     ]
     levies = Decimal("0")
 
+    # Both regimes charge the surcharge on the duty. The legacy regime adds CISS
+    # (1% of FOB); the fob4 regime adds the 4% FOB charge (FCS) in place of CISS.
+    # This is how the official NSW duty calculator works (checked 25 Oct 2026).
+    surcharge = q(duty * rates.surcharge_pct / HUNDRED)
+    charges.append(_charge("Surcharge", duty, rates.surcharge_pct, surcharge))
+    levies += surcharge
     if regime == "legacy":
-        surcharge = q(duty * rates.surcharge_pct / HUNDRED)
-        charges.append(_charge("Surcharge", duty, rates.surcharge_pct, surcharge))
         ciss = q(fob * rates.ciss_pct / HUNDRED)
         charges.append(_charge("CISS", fob, rates.ciss_pct, ciss))
-        levies += surcharge + ciss
-    else:  # fob4 replaces CISS and the surcharge
+        levies += ciss
+    else:
         fob_charge = q(fob * rates.fob_charge_pct / HUNDRED)
         charges.append(_charge("FOB Charge", fob, rates.fob_charge_pct, fob_charge))
         levies += fob_charge

@@ -27,8 +27,8 @@ def oracle(fob, freight, duty_pct, regime, etls):
     levies = F(0)
     if regime == "legacy":
         levies += half_up(duty * 7 / 100) + half_up(fob * 1 / 100)
-    else:
-        levies += half_up(fob * 4 / 100)
+    else:  # fob4: the 4% FOB charge replaces CISS; the surcharge still applies (NSW)
+        levies += half_up(duty * 7 / 100) + half_up(fob * 4 / 100)
     if etls:
         levies += half_up(cif * F(1, 2) / 100)
     vat = half_up((cif + duty + levies) * F("7.5") / 100)

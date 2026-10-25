@@ -243,7 +243,7 @@ def build_notes(
         )
     elif requested_regime == "fob4":
         assumptions.append(
-            f"Levy regime FOB4: {_pct(rates.fob_charge_pct)}% FOB charge replaces CISS and the surcharge."
+            f"Levy regime FOB4: {_pct(rates.fob_charge_pct)}% FOB charge replaces CISS; the {_pct(rates.surcharge_pct)}% surcharge on the duty still applies."
         )
     else:
         assumptions.append(
