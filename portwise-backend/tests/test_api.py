@@ -151,9 +151,25 @@ def test_sensitivity_zero_shift_matches_headline(client):
     assert zero["total_landed_cost_ngn"] == body["data"]["total_landed_cost_ngn"]
 
 
-def test_iat_warning_for_cosmetics(client):
-    body = post(client, {**REF, "hs_code": "3304.99"}).json()
-    assert any("Import Adjustment Tax" in w for w in body["warnings"])
+def test_iat_is_its_own_line_for_cosmetics(client):
+    body = post(client, {**REF, "hs_code": "3304.99", "regime": "legacy"}).json()
+    data = body["data"]
+    iat = next(c for c in data["charges"] if c["name"] == "IAT")
+    assert iat["rate_pct"] == 5.0
+    assert iat["amount_ngn"] == round(data["cif_value_ngn"] * 0.05, 2)
+    assert data["iat_amount_ngn"] == iat["amount_ngn"]
+    # Added to the total, left out of the VAT base, and no longer a warning.
+    assert data["vat_base_ngn"] == round(data["cif_value_ngn"] + data["duty_amount_ngn"] + data["total_levies_ngn"], 2)
+    assert data["total_landed_cost_ngn"] == round(
+        data["vat_base_ngn"] + data["iat_amount_ngn"] + data["vat_amount_ngn"], 2)
+    assert not any("Import Adjustment Tax" in w for w in body["warnings"])
+    assert any("Import Adjustment Tax" in a for a in body["assumptions"])
+
+
+def test_no_iat_line_when_rate_is_zero(client):
+    data = post(client, {**REF, "regime": "legacy"}).json()["data"]
+    assert data["iat_amount_ngn"] == 0.0
+    assert all(c["name"] != "IAT" for c in data["charges"])
 
 
 def test_ecowas_origin_etls_warning(client):

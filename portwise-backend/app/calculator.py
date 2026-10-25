@@ -53,6 +53,7 @@ def compute_breakdown(
     etls_applicable: bool = True,
     vat_rate_pct: Optional[Number] = None,
     rates: Optional[LevyRates] = None,
+    iat_rate_pct: Number = 0,
 ) -> Dict[str, Any]:
     """Return the full breakdown with ``Decimal`` values (naira)."""
     rates = rates or LevyRates()
@@ -65,11 +66,17 @@ def compute_breakdown(
 
     cif = fob + freight
     duty = q(cif * duty_rate / HUNDRED)
+    iat_rate = to_decimal(iat_rate_pct)
 
     charges: List[Dict[str, Any]] = [
         _charge("CIF Value", cif, Decimal("0"), cif),
         _charge("Import Duty", cif, duty_rate, duty),
     ]
+    # Import Adjustment Tax: a percentage of the customs value on some HS codes. It is
+    # added to the total but, as on the NSW calculator, it is not part of the VAT base.
+    iat = q(cif * iat_rate / HUNDRED)
+    if iat_rate > 0:
+        charges.append(_charge("IAT", cif, iat_rate, iat))
     levies = Decimal("0")
 
     # Both regimes charge the surcharge on the duty. The legacy regime adds CISS
@@ -94,12 +101,13 @@ def compute_breakdown(
 
     vat_base = cif + duty + levies
     vat = q(vat_base * vat_rate / HUNDRED)
-    total_charges = duty + levies + vat
+    total_charges = duty + iat + levies + vat
 
     return {
         "regime": regime,
         "cif_value_ngn": cif,
         "duty_amount_ngn": duty,
+        "iat_amount_ngn": iat,
         "total_levies_ngn": levies,
         "vat_base_ngn": vat_base,
         "vat_rate_pct": vat_rate,
