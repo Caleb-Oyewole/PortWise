@@ -86,7 +86,7 @@ def readiness():
     from fastapi.responses import JSONResponse
     from sqlalchemy import text
 
-    from app.database import engine
+    from app.database import classify_db_error, engine
     from app.models import HSCodeTariff
 
     try:
@@ -99,9 +99,16 @@ def readiness():
             db.close()
     except Exception as exc:  # report the kind of failure, never connection details
         log.exception("Readiness check failed")
+        cause, hint = classify_db_error(exc)
         return JSONResponse(
             status_code=503,
-            content={"status": "unavailable", "database": engine.dialect.name, "error": type(exc).__name__},
+            content={
+                "status": "unavailable",
+                "database": engine.dialect.name,
+                "error": type(exc).__name__,
+                "cause": cause,
+                "hint": hint,
+            },
         )
     return {"status": "ready", "database": engine.dialect.name, "tariff_rows": tariffs, "version": VERSION}
 

@@ -329,3 +329,44 @@ def test_sqlite_falls_back_to_temp_dir_when_app_folder_is_read_only(monkeypatch)
     assert database._default_sqlite_url().startswith("sqlite:///" + tempfile.gettempdir())
     monkeypatch.setattr(database.os, "access", lambda path, mode: True)
     assert database._default_sqlite_url() == "sqlite:///./portwise.db"
+
+
+import pytest
+
+
+@pytest.mark.parametrize("message,cause", [
+    ('could not translate host name "db.internal" to address: Name or service not known', "host_not_found"),
+    ('connection to server at "h" failed: FATAL:  password authentication failed for user "u"', "authentication_failed"),
+    ('FATAL:  no pg_hba.conf entry for host "1.2.3.4", user "u", database "d", no encryption', "ssl_required"),
+    ('connection to server at "h", port 5432 failed: Connection refused', "connection_refused"),
+    ('connection to server at "h", port 5432 failed: timeout expired', "timeout"),
+    ('FATAL:  database "portwise" does not exist', "database_missing"),
+    ('FATAL:  role "u" does not exist', "authentication_failed"),
+    ("something nobody has seen before", "unknown"),
+])
+def test_classify_db_error(message, cause):
+    from app.database import DB_FAILURE_HINTS, classify_db_error
+
+    got, hint = classify_db_error(Exception(message))
+    assert got == cause
+    assert hint == DB_FAILURE_HINTS[cause]
+    # the hint is a fixed string and never echoes the driver's message
+    for secret in ("db.internal", "1.2.3.4", '"u"', "portwise"):
+        assert secret not in hint
+
+
+def test_readiness_reports_the_cause_without_leaking_details(client, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    from app.database import engine
+
+    def boom(*a, **k):
+        raise OperationalError("SELECT 1", {}, Exception('FATAL: password authentication failed for user "secretuser" at host db.secret.internal'))
+
+    monkeypatch.setattr(engine, "connect", boom)
+    r = client.get("/health/ready")
+    assert r.status_code == 503
+    body = r.json()
+    assert body["cause"] == "authentication_failed"
+    assert body["error"] == "OperationalError"
+    assert "hint" in body
+    assert "secretuser" not in r.text and "db.secret.internal" not in r.text
