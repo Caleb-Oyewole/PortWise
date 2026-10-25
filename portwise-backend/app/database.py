@@ -43,6 +43,51 @@ else:
     # pool_pre_ping drops connections the managed database closed while the app was asleep
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
+# What to tell the operator for each kind of connection failure. These are fixed strings:
+# nothing from the driver's message (host, user, database name) is ever copied into them.
+DB_FAILURE_HINTS = {
+    "host_not_found": "The host in DATABASE_URL can't be found. Copy the connection string again from Rumpty's "
+                      "managed Postgres page (use the internal/private URL if one is offered), and check the "
+                      "database is in the same project and region.",
+    "authentication_failed": "The username or password in DATABASE_URL was rejected. Copy them again from the "
+                             "managed Postgres page; special characters in the password must be URL-encoded.",
+    "ssl_required": "The database requires an encrypted connection. Add ?sslmode=require to the end of DATABASE_URL.",
+    "connection_refused": "The database refused the connection. It may be stopped or paused, or not attached to "
+                          "this app. Start it or attach it in Rumpty.",
+    "timeout": "The database did not answer in time. It may be stopped or paused, or blocked by a firewall. "
+               "Start it, and check the app is allowed to reach it.",
+    "database_missing": "The database name at the end of DATABASE_URL does not exist on that server. "
+                        "Check the name on the managed Postgres page.",
+    "unknown": "The cause is not one of the common ones. Search Rumpty's runtime logs for 'Readiness check failed'.",
+}
+
+
+def classify_db_error(exc: BaseException) -> tuple:
+    """Return ``(cause, hint)`` for a database connection failure, without leaking its details."""
+    text = str(exc).lower()
+    if any(m in text for m in ("could not translate host name", "name or service not known",
+                               "nodename nor servname", "temporary failure in name resolution",
+                               "getaddrinfo failed")):
+        cause = "host_not_found"
+    elif "password authentication failed" in text or "authentication failed" in text or (
+        'role "' in text and "does not exist" in text
+    ):
+        cause = "authentication_failed"
+    elif "pg_hba.conf" in text and "no encryption" in text or "ssl" in text and "required" in text or (
+        "server does not support ssl" not in text and "sslmode" in text
+    ):
+        cause = "ssl_required"
+    elif "database" in text and "does not exist" in text:
+        cause = "database_missing"
+    elif "connection refused" in text:
+        cause = "connection_refused"
+    elif "timeout" in text or "timed out" in text:
+        cause = "timeout"
+    else:
+        cause = "unknown"
+    return cause, DB_FAILURE_HINTS[cause]
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
