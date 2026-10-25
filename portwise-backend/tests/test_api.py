@@ -187,11 +187,10 @@ def test_future_tariff_not_yet_in_force(client, db):
 
 
 def test_latest_effective_tariff_wins(client, db):
-    # The unique constraint on `code` is a schema issue; here a second row is stored without the dot to
-    # show that the lookup picks the newest row in force, ignoring dots and case.
+    # Tariffs are versioned: a second row for the same code with a later effective_from wins.
     old = db.query(HSCodeTariff).filter(HSCodeTariff.code == "8517.12").first()
     old.effective_from = datetime.utcnow() - timedelta(days=30)
-    db.add(HSCodeTariff(code="851712", description="new", duty_rate_pct=10.0,
+    db.add(HSCodeTariff(code="8517.12", description="new", duty_rate_pct=10.0,
                         effective_from=datetime.utcnow() - timedelta(hours=1),
                         source_ref="NEW", hs_version="2022"))
     db.commit()
@@ -288,3 +287,86 @@ def test_multi_prohibited_line_blocks_shipment(client):
 
 def test_multi_empty_items_422(client):
     assert client.post("/api/v1/calculate/multi", json={"items": []}).status_code == 422
+
+
+# ---------- browser access ----------
+
+def test_cors_preflight_allows_browser_clients(client):
+    r = client.options(
+        "/api/v1/calculate",
+        headers={
+            "Origin": "https://portwise-web.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] in ("*", "https://portwise-web.example")
+
+
+def test_readiness_checks_the_database(client):
+    r = client.get("/health/ready")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ready" and body["database"] == "sqlite" and body["tariff_rows"] >= 5
+
+
+def test_database_url_normalisation():
+    from app.database import normalize_database_url
+
+    assert normalize_database_url("postgres://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("postgresql://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("postgresql+psycopg2://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert normalize_database_url("sqlite:///./x.db") == "sqlite:///./x.db"
+
+
+def test_sqlite_falls_back_to_temp_dir_when_app_folder_is_read_only(monkeypatch):
+    import tempfile
+
+    from app import database
+
+    monkeypatch.setattr(database.os, "access", lambda path, mode: False)
+    assert database._default_sqlite_url().startswith("sqlite:///" + tempfile.gettempdir())
+    monkeypatch.setattr(database.os, "access", lambda path, mode: True)
+    assert database._default_sqlite_url() == "sqlite:///./portwise.db"
+
+
+import pytest
+
+
+@pytest.mark.parametrize("message,cause", [
+    ('could not translate host name "db.internal" to address: Name or service not known', "host_not_found"),
+    ('connection to server at "h" failed: FATAL:  password authentication failed for user "u"', "authentication_failed"),
+    ('FATAL:  no pg_hba.conf entry for host "1.2.3.4", user "u", database "d", no encryption', "ssl_required"),
+    ('connection to server at "h", port 5432 failed: Connection refused', "connection_refused"),
+    ('connection to server at "h", port 5432 failed: timeout expired', "timeout"),
+    ('FATAL:  database "portwise" does not exist', "database_missing"),
+    ('FATAL:  role "u" does not exist', "authentication_failed"),
+    ("something nobody has seen before", "unknown"),
+])
+def test_classify_db_error(message, cause):
+    from app.database import DB_FAILURE_HINTS, classify_db_error
+
+    got, hint = classify_db_error(Exception(message))
+    assert got == cause
+    assert hint == DB_FAILURE_HINTS[cause]
+    # the hint is a fixed string and never echoes the driver's message
+    for secret in ("db.internal", "1.2.3.4", '"u"', "portwise"):
+        assert secret not in hint
+
+
+def test_readiness_reports_the_cause_without_leaking_details(client, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    from app.database import engine
+
+    def boom(*a, **k):
+        raise OperationalError("SELECT 1", {}, Exception('FATAL: password authentication failed for user "secretuser" at host db.secret.internal'))
+
+    monkeypatch.setattr(engine, "connect", boom)
+    r = client.get("/health/ready")
+    assert r.status_code == 503
+    body = r.json()
+    assert body["cause"] == "authentication_failed"
+    assert body["error"] == "OperationalError"
+    assert "hint" in body
+    assert "secretuser" not in r.text and "db.secret.internal" not in r.text

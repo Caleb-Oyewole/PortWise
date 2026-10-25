@@ -3,11 +3,16 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app import service
+from app import catalog, service
+from app.admin.auth import ensure_bootstrap_admin
+from app.admin.routes import router as admin_router
+from app.fx_provider import start_background_refresh, stop_background_refresh
+from app.limits import BodySizeLimit, RateLimit
 from app.config import CACHE_TTL_SECONDS, get_levy_rates
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.errors import PortWiseError, portwise_error_handler
 from app.schemas import CalculateRequest, MultiCalculateRequest
 from app.seed import init_database
@@ -22,9 +27,12 @@ async def lifespan(app: FastAPI):
     # A database that is down must not stop the process from answering / and /health.
     try:
         init_database()
+        ensure_bootstrap_admin()
     except Exception:
         log.exception("Database initialisation failed; continuing so the service can report health")
+    start_background_refresh()
     yield
+    stop_background_refresh()
 
 
 app = FastAPI(
@@ -34,6 +42,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_exception_handler(PortWiseError, portwise_error_handler)
+app.include_router(catalog.router)
+# Admin endpoints work as before but are left out of the public /docs.
+app.include_router(admin_router, include_in_schema=False)
+
+
+def _cors_origins() -> list[str]:
+    """CORS_ORIGINS is a comma-separated list; "*" (the default) allows any site.
+
+    The public API holds no user data and the admin API uses bearer tokens, not
+    cookies, so allowing any origin is safe; set the list to lock it down.
+    """
+    raw = os.getenv("CORS_ORIGINS", "*").strip()
+    return ["*"] if raw in ("", "*") else [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+
+
+# Added first so CORS (added last, outermost) also decorates their 413 / 429 responses.
+app.add_middleware(RateLimit)
+app.add_middleware(BodySizeLimit)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=600,
+)
 
 
 @app.get("/")
@@ -45,6 +78,39 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "online", "service": "PortWise API", "version": VERSION}
+
+
+@app.get("/health/ready")
+def readiness():
+    """Checks the database too: 200 when calculations can run, 503 (with the reason) when not."""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    from app.database import classify_db_error, engine
+    from app.models import HSCodeTariff
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db = SessionLocal()
+        try:
+            tariffs = db.query(HSCodeTariff).count()
+        finally:
+            db.close()
+    except Exception as exc:  # report the kind of failure, never connection details
+        log.exception("Readiness check failed")
+        cause, hint = classify_db_error(exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "database": engine.dialect.name,
+                "error": type(exc).__name__,
+                "cause": cause,
+                "hint": hint,
+            },
+        )
+    return {"status": "ready", "database": engine.dialect.name, "tariff_rows": tariffs, "version": VERSION}
 
 
 @app.post("/api/v1/calculate")
