@@ -87,6 +87,25 @@ def test_matches_nsw_official_calculator():
     assert abs(r10["total_charges_ngn"] - Decimal("351143.88")) <= Decimal("0.01")
 
 
+def test_iat_on_the_nsw_case():
+    """The NSW phones case (5% duty) with a 5% Import Adjustment Tax on the customs value.
+
+    IAT is its own line and is added to the total, but the VAT base, and so VAT,
+    stay exactly as NSW computed them without it.
+    """
+    fob, freight = Decimal("1361339.40"), Decimal("136133.94")
+    plain = compute_breakdown(fob, freight, Decimal("5"), "fob4", True)
+    r = compute_breakdown(fob, freight, Decimal("5"), "fob4", True, iat_rate_pct=Decimal("5"))
+    lines = _names(r)
+    assert lines["IAT"] == Decimal("74873.67")            # 5% of CIF 1,497,473.34
+    assert r["iat_amount_ngn"] == Decimal("74873.67")
+    assert r["vat_base_ngn"] == plain["vat_base_ngn"]       # not part of the VAT base
+    assert r["vat_amount_ngn"] == plain["vat_amount_ngn"]
+    assert r["total_charges_ngn"] == plain["total_charges_ngn"] + Decimal("74873.67")
+    assert r["total_landed_cost_ngn"] == r["cif_value_ngn"] + r["total_charges_ngn"]
+    assert "IAT" not in _names(plain)
+
+
 def test_zero_duty_still_has_levies_and_vat():
     r = calculate_landed_cost_exact(1000000, 0, 0, "legacy", True)
     assert r["duty_amount_ngn"] == 0.0

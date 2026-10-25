@@ -261,9 +261,9 @@ def build_notes(
             )
     for tariff in tariffs.values():
         if tariff.iat_rate_pct > 0:
-            warnings.append(
-                f"HS {tariff.code} has an Import Adjustment Tax of {_pct(tariff.iat_rate_pct)}% on record, "
-                "but it is not included yet because its calculation basis is unconfirmed. The real cost may be higher."
+            assumptions.append(
+                f"HS {tariff.code} carries an Import Adjustment Tax of {_pct(tariff.iat_rate_pct)}% of the customs value. "
+                "It is included in the total and is not part of the VAT base."
             )
     for fx in fx_by_currency.values():
         if fx.source == "User Custom Override":
@@ -320,9 +320,10 @@ def _evaluate(
     results: Dict[str, Dict[str, Any]] = {}
     for regime in regimes:
         line_out: List[Dict[str, Any]] = []
-        totals = {k: Decimal("0") for k in ("cif", "duty", "levies", "vat", "grand")}
+        totals = {k: Decimal("0") for k in ("cif", "duty", "iat", "levies", "vat", "grand")}
         for line, fob, share in zip(lines, fobs, shares):
-            b = compute_breakdown(fob, share, line.tariff.duty_rate_pct, regime, etls, rates=rates)
+            b = compute_breakdown(fob, share, line.tariff.duty_rate_pct, regime, etls, rates=rates,
+                                  iat_rate_pct=line.tariff.iat_rate_pct)
             line_out.append({
                 "item_id": line.item_id,
                 "hs_code": line.hs_code,
@@ -342,6 +343,7 @@ def _evaluate(
             })
             totals["cif"] += b["cif_value_ngn"]
             totals["duty"] += b["duty_amount_ngn"]
+            totals["iat"] += b["iat_amount_ngn"]
             totals["levies"] += b["total_levies_ngn"]
             totals["vat"] += b["vat_amount_ngn"]
             totals["grand"] += b["total_landed_cost_ngn"]
@@ -352,11 +354,12 @@ def _evaluate(
                 "total_freight_insurance_ngn": float(sum(shares)),
                 "total_cif_ngn": float(totals["cif"]),
                 "total_duty_ngn": float(totals["duty"]),
+                "total_iat_ngn": float(totals["iat"]),
                 "total_levies_ngn": float(totals["levies"]),
                 "total_vat_ngn": float(totals["vat"]),
                 "grand_total_landed_cost_ngn": float(totals["grand"]),
-                # Duty + levies + VAT, and how much they add on top of the goods value.
-                "total_charges_ngn": float(totals["duty"] + totals["levies"] + totals["vat"]),
+                # Duty + IAT + levies + VAT, and how much they add on top of the goods value.
+                "total_charges_ngn": float(totals["duty"] + totals["iat"] + totals["levies"] + totals["vat"]),
                 "charges_pct_of_fob": float(q((totals["grand"] - sum(fobs)) / sum(fobs) * HUNDRED)) if sum(fobs) else 0.0,
             },
         }

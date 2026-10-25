@@ -50,7 +50,7 @@ export type Regime = "legacy" | "fob4";
 export type RegimeChoice = Regime | "both";
 
 export const REGIME_NAME: Record<Regime, string> = {
-  legacy: "CISS and 7% surcharge",
+  legacy: "1% CISS",
   fob4: "4% FOB charge",
 };
 
@@ -89,6 +89,7 @@ export const Breakdown = z.object({
   regime: z.enum(["legacy", "fob4"]),
   cif_value_ngn: Money,
   duty_amount_ngn: Money,
+  iat_amount_ngn: Money.optional(),
   total_levies_ngn: Money,
   vat_base_ngn: Money,
   vat_rate_pct: Money,
@@ -123,6 +124,7 @@ export const ShipmentSummary = z.object({
   total_freight_insurance_ngn: Money,
   total_cif_ngn: Money,
   total_duty_ngn: Money,
+  total_iat_ngn: Money.optional(),
   total_levies_ngn: Money,
   total_vat_ngn: Money,
   grand_total_landed_cost_ngn: Money,

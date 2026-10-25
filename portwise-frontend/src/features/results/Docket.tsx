@@ -166,14 +166,16 @@ function ResultView({
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    const parts = s.total_cif_ngn + s.total_duty_ngn + s.total_levies_ngn + s.total_vat_ngn;
+    const parts = s.total_cif_ngn + s.total_duty_ngn + (s.total_iat_ngn ?? 0) + s.total_levies_ngn + s.total_vat_ngn;
     if (Math.abs(parts - s.grand_total_landed_cost_ngn) > 0.05)
       console.error(`[PortWise] Breakdown does not add up: ${parts} vs ${s.grand_total_landed_cost_ngn}`, res);
   }, [res, s]);
 
+  const iat = s.total_iat_ngn ?? 0;
   const parts: Part[] = [
     { key: "cif", label: "Customs value", value: s.total_cif_ngn, color: PART_COLORS.cif },
-    { key: "duty", label: "Duty", value: s.total_duty_ngn, color: PART_COLORS.duty },
+    // IAT is a tax on the customs value like duty, so it shares the duty colour.
+    { key: "duty", label: iat ? "Duty and IAT" : "Duty", value: s.total_duty_ngn + iat, color: PART_COLORS.duty },
     { key: "levies", label: "Levies", value: s.total_levies_ngn, color: PART_COLORS.levies },
     { key: "vat", label: "VAT", value: s.total_vat_ngn, color: PART_COLORS.vat },
   ];
@@ -216,6 +218,9 @@ function ResultView({
           amount: s.total_cif_ngn,
         },
         { key: "duty", color: PART_COLORS.duty, label: <GlossaryTerm term="duty">Import duty</GlossaryTerm>, basis: "At each product's own rate", amount: s.total_duty_ngn },
+        ...(iat
+          ? [{ key: "iat", color: PART_COLORS.duty, label: "Import adjustment tax (IAT)", basis: "Share of customs value, on the products that carry it", amount: iat }]
+          : []),
         {
           key: "levies",
           color: PART_COLORS.levies,

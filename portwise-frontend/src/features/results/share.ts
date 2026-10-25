@@ -14,7 +14,7 @@ export function summaryText(res: CalcResponse, scenario: Scenario, url: string) 
     `Landed cost: ${formatNgn(s.grand_total_landed_cost_ngn)} (${REGIME_NAME[scenario.regime]})`,
     other ? `With the ${REGIME_NAME[other.regime]}: ${formatNgn(other.shipment_summary.grand_total_landed_cost_ngn)}` : null,
     single?.per_unit_landed_cost_ngn ? `Per unit: ${formatNgn(single.per_unit_landed_cost_ngn)}` : null,
-    `Customs value ${formatNgn(s.total_cif_ngn)}, duty ${formatNgn(s.total_duty_ngn)}, levies ${formatNgn(s.total_levies_ngn)}, VAT ${formatNgn(s.total_vat_ngn)}`,
+    `Customs value ${formatNgn(s.total_cif_ngn)}, duty ${formatNgn(s.total_duty_ngn)}, ${s.total_iat_ngn ? `IAT ${formatNgn(s.total_iat_ngn)}, ` : ""}levies ${formatNgn(s.total_levies_ngn)}, VAT ${formatNgn(s.total_vat_ngn)}`,
     ...res.fx.filter((f) => f.currency !== "NGN").map((f) => `Rate: 1 ${f.currency} = ${formatNgn(f.rate)}`),
     "Estimate only, not an official customs assessment.",
     url,

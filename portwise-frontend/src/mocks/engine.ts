@@ -1,7 +1,8 @@
 // A TypeScript mirror of portwise-backend/app/calculator.py and service.py, used ONLY by the
 // mock API (dev and ?demo=1). The production app never computes money: the server does.
 //   CIF = FOB + freight;  Duty = CIF x duty%
-//   legacy: surcharge 7% of duty + CISS 1% of FOB     fob4: 4% of FOB
+//   surcharge 7% of duty in both regimes; legacy adds CISS 1% of FOB, fob4 adds 4% of FOB
+//   IAT (some codes): % of CIF, added to the total but outside the VAT base
 //   ETLS 0.5% of CIF;  VAT 7.5% of CIF + duty + levies;  every charge rounded to the kobo.
 import type { Breakdown, CalcResponse, LineResult, Regime, ShipmentSummary } from "@/lib/api/schemas";
 
@@ -29,7 +30,7 @@ export const DEFAULT_RATES: Rates = {
   default_freight_insurance_pct: 10,
 };
 
-export function computeBreakdown(fob: number, freight: number, dutyPct: number, regime: Regime, etls: boolean, r: Rates): Breakdown {
+export function computeBreakdown(fob: number, freight: number, dutyPct: number, regime: Regime, etls: boolean, r: Rates, iatPct = 0): Breakdown {
   fob = q(fob);
   freight = q(freight);
   const cif = q(fob + freight);
@@ -38,13 +39,15 @@ export function computeBreakdown(fob: number, freight: number, dutyPct: number, 
     { name: "CIF Value", base: cif, rate_pct: 0, amount_ngn: cif },
     { name: "Import Duty", base: cif, rate_pct: dutyPct, amount_ngn: duty },
   ];
-  let levies = 0;
+  const iat = q((cif * iatPct) / 100);
+  if (iatPct > 0) charges.push({ name: "IAT", base: cif, rate_pct: iatPct, amount_ngn: iat });
+  const surcharge = q((duty * r.surcharge_pct) / 100);
+  charges.push({ name: "Surcharge", base: duty, rate_pct: r.surcharge_pct, amount_ngn: surcharge });
+  let levies = surcharge;
   if (regime === "legacy") {
-    const surcharge = q((duty * r.surcharge_pct) / 100);
     const ciss = q((fob * r.ciss_pct) / 100);
-    charges.push({ name: "Surcharge", base: duty, rate_pct: r.surcharge_pct, amount_ngn: surcharge });
     charges.push({ name: "CISS", base: fob, rate_pct: r.ciss_pct, amount_ngn: ciss });
-    levies = q(levies + surcharge + ciss);
+    levies = q(levies + ciss);
   } else {
     const fobCharge = q((fob * r.fob_charge_pct) / 100);
     charges.push({ name: "FOB Charge", base: fob, rate_pct: r.fob_charge_pct, amount_ngn: fobCharge });
@@ -57,11 +60,12 @@ export function computeBreakdown(fob: number, freight: number, dutyPct: number, 
   }
   const vatBase = q(cif + duty + levies);
   const vat = q((vatBase * r.vat_pct) / 100);
-  const totalCharges = q(duty + levies + vat);
+  const totalCharges = q(duty + iat + levies + vat);
   return {
     regime,
     cif_value_ngn: cif,
     duty_amount_ngn: duty,
+    iat_amount_ngn: iat,
     total_levies_ngn: levies,
     vat_base_ngn: vatBase,
     vat_rate_pct: r.vat_pct,
@@ -88,6 +92,7 @@ export interface EngineLine {
   description: string;
   category: string;
   duty_pct: number;
+  iat_pct?: number;
   fob_fc: number;
   currency: string;
   fx: number;
@@ -100,7 +105,7 @@ function evaluate(lines: EngineLine[], freight: number, regime: Regime, etls: bo
   const fobs = lines.map((l) => q(l.fob_fc * l.fx * factor));
   const shares = allocate(freight, fobs);
   const out: LineResult[] = lines.map((l, i) => {
-    const b = computeBreakdown(fobs[i], shares[i], l.duty_pct, regime, etls, r);
+    const b = computeBreakdown(fobs[i], shares[i], l.duty_pct, regime, etls, r, l.iat_pct ?? 0);
     return {
       item_id: l.item_id,
       hs_code: l.hs_code,
@@ -127,6 +132,7 @@ function evaluate(lines: EngineLine[], freight: number, regime: Regime, etls: bo
     total_freight_insurance_ngn: q(shares.reduce((a, b) => a + b, 0)),
     total_cif_ngn: sum((x) => x.breakdown.cif_value_ngn),
     total_duty_ngn: sum((x) => x.breakdown.duty_amount_ngn),
+    total_iat_ngn: sum((x) => x.breakdown.iat_amount_ngn ?? 0),
     total_levies_ngn: sum((x) => x.breakdown.total_levies_ngn),
     total_vat_ngn: sum((x) => x.breakdown.vat_amount_ngn),
     grand_total_landed_cost_ngn: grand,

@@ -65,16 +65,17 @@ The rules exist, but they are spread across tariff PDFs, fiscal-policy circulars
 Goods value (FOB)   = price × quantity × exchange rate
 Customs value (CIF) = FOB + freight and insurance        (assumed 10% of FOB if not entered, and stated)
 Import duty         = CIF × duty rate for the HS code
-Levies              = legacy: 7% surcharge on duty + 1% CISS on FOB
-                      or 4% FOB charge (in place of both)
+IAT                 = CIF × IAT rate, for the codes that carry it (e.g. 5% on smartphones)
+Levies              = 7% surcharge on duty
+                      + legacy: 1% CISS on FOB, or fob4: 4% FOB charge (in place of CISS)
                       + ETLS 0.5% of CIF
-VAT                 = 7.5% × (CIF + duty + levies)
-Landed cost         = CIF + duty + levies + VAT
+VAT                 = 7.5% × (CIF + duty + levies)                 (IAT is not in the VAT base)
+Landed cost         = CIF + duty + IAT + levies + VAT
 ```
 
 Every charge is computed in exact decimals and rounded half-up to the kobo. VAT and the totals are built from the rounded lines, so the numbers always add up. A multi-product shipment shares freight by goods value. Vehicles, alcohol and tobacco, which have extra duty rules, are refused rather than estimated wrongly.
 
-**Reference check** (the same in every test suite): ₦3,000,000 FOB plus ₦450,000 freight at 20% duty gives **₦4,553,216.25** (legacy) and **₦4,598,043.75** (4% FOB charge).
+**Reference check** (the same in every test suite): ₦3,000,000 FOB plus ₦450,000 freight at 20% duty gives **₦4,553,216.25** (legacy) and **₦4,649,966.25** (4% FOB charge, which keeps the surcharge).
 
 ## Architecture
 
