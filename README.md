@@ -8,7 +8,7 @@ PortWise turns a supplier's invoice into an itemized **landed cost in naira** (c
 
 **Built for Devcenter Hacktober 2026 · Hosted on Rumpty Cloud**
 
-**[Try PortWise](https://portwise-web.rumptycloud.app)** · [Live API](https://portwise-api.rumptycloud.app) · [API docs](https://portwise-api.rumptycloud.app/docs) · [How it's built](#architecture) · [Run it locally](#run-it-locally)
+**[Try PortWise](https://portwise-web.rumptycloud.app)** · [Watch the 3-minute demo](https://drive.google.com/file/d/1mfLAs_QpmMojvNJe41vsBVH0mG8Y8HP8/view?usp=sharing) · [Live API](https://portwise-api.rumptycloud.app) · [API docs](https://portwise-api.rumptycloud.app/docs) · [How it's built](#architecture) · [Run it locally](#run-it-locally)
 
 <img src="docs/calculator.png" alt="PortWise showing a ₦8,578,995.87 landed cost for 20 smartphones from Dubai, broken down into customs value, duty, levies and VAT" width="860">
 
