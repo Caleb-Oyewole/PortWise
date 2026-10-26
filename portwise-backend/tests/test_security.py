@@ -39,6 +39,37 @@ def test_dev_admin_removed_once_a_real_admin_is_configured(client, monkeypatch):
     assert emails == {"ops@portwise.ng"}
 
 
+def test_published_dev_password_is_refused_in_production(client, monkeypatch):
+    # The dev password is public. Using it as ADMIN_PASSWORD must not create or keep an admin.
+    monkeypatch.delenv("PORTWISE_DEV", raising=False)
+    monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
+    monkeypatch.setenv("ADMIN_PASSWORD", DEV_ADMIN_PASSWORD)
+    assert ensure_bootstrap_admin() is None
+    with SessionLocal() as db:
+        assert db.query(AdminUser).filter(AdminUser.email == "ops@portwise.ng").first() is None
+    reset_throttle()
+    assert _login(client, email="ops@portwise.ng").status_code == 401
+
+
+def test_admin_holding_the_published_password_is_removed_then_recovers_with_a_new_one(client, monkeypatch):
+    # Simulates the live site: an admin already exists with the public password, then ADMIN_PASSWORD is rotated.
+    monkeypatch.delenv("PORTWISE_DEV", raising=False)
+    monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
+    with SessionLocal() as db:
+        db.add(AdminUser(email="ops@portwise.ng", name="ops", password_hash=auth.hash_password(DEV_ADMIN_PASSWORD)))
+        db.commit()
+    monkeypatch.setenv("ADMIN_PASSWORD", DEV_ADMIN_PASSWORD)
+    ensure_bootstrap_admin()
+    reset_throttle()
+    assert _login(client, email="ops@portwise.ng").status_code == 401  # old password no longer works
+    monkeypatch.setenv("ADMIN_PASSWORD", "a-new-unique-passphrase-2026")
+    assert ensure_bootstrap_admin() == "ops@portwise.ng"
+    reset_throttle()
+    assert _login(client, email="ops@portwise.ng", password="a-new-unique-passphrase-2026").status_code == 200
+    reset_throttle()
+    assert _login(client, email="ops@portwise.ng").status_code == 401
+
+
 def test_short_admin_password_is_refused(client, monkeypatch):
     monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
     monkeypatch.setenv("ADMIN_PASSWORD", "short")

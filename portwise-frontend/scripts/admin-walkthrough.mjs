@@ -1,12 +1,18 @@
 // Drives the admin dashboard end to end against a running API and takes screenshots.
 // It proves the demo moment: an admin adds a tariff and the calculator offers it.
 // Usage: node scripts/admin-walkthrough.mjs [baseUrl] [email] [password]
+// The password is never defaulted. Pass it as the third argument or set ADMIN_PASSWORD, so this
+// script cannot be pointed at a live site with a password that is written in the repository.
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 const base = process.argv[2] ?? "http://localhost:5173";
 const email = process.argv[3] ?? "admin@portwise.local";
-const password = process.argv[4] ?? "portwise-admin";
+const password = process.argv[4] ?? process.env.ADMIN_PASSWORD;
+if (!password) {
+  console.error("Missing admin password: pass it as the third argument or set ADMIN_PASSWORD.");
+  process.exit(1);
+}
 const out = "screenshots";
 mkdirSync(out, { recursive: true });
 

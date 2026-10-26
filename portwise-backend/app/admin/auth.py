@@ -245,6 +245,16 @@ def ensure_bootstrap_admin() -> Optional[str]:
         elif len(password) < MIN_PASSWORD_LENGTH:
             log.error("ADMIN_PASSWORD must be at least %d characters; the admin account was not created.", MIN_PASSWORD_LENGTH)
             return None
+        elif password == DEV_ADMIN_PASSWORD and not dev_mode():
+            # The development password is published in the repository, so it must never protect a real admin.
+            # Fail closed: remove any account that still holds it, so nobody can sign in until it is changed.
+            stale = db.query(AdminUser).filter(AdminUser.email == email).first()
+            if stale:
+                db.delete(stale)
+                db.commit()
+            log.error("ADMIN_PASSWORD is the published development password; it was refused and the admin account removed. "
+                      "Set a new, unique password (at least %d characters) and restart.", MIN_PASSWORD_LENGTH)
+            return None
 
         existing = db.query(AdminUser).filter(AdminUser.email == email).first()
         if existing:
