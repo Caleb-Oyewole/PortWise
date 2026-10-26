@@ -1,0 +1,87 @@
+diff --git a/portwise-backend/app/admin/auth.py b/portwise-backend/app/admin/auth.py
+index ffeebb0..7042b06 100644
+--- a/portwise-backend/app/admin/auth.py
++++ b/portwise-backend/app/admin/auth.py
+@@ -245,6 +245,16 @@ def ensure_bootstrap_admin() -> Optional[str]:
+         elif len(password) < MIN_PASSWORD_LENGTH:
+             log.error("ADMIN_PASSWORD must be at least %d characters; the admin account was not created.", MIN_PASSWORD_LENGTH)
+             return None
++        elif password == DEV_ADMIN_PASSWORD and not dev_mode():
++            # The development password is published in the repository, so it must never protect a real admin.
++            # Fail closed: remove any account that still holds it, so nobody can sign in until it is changed.
++            stale = db.query(AdminUser).filter(AdminUser.email == email).first()
++            if stale:
++                db.delete(stale)
++                db.commit()
++            log.error("ADMIN_PASSWORD is the published development password; it was refused and the admin account removed. "
++                      "Set a new, unique password (at least %d characters) and restart.", MIN_PASSWORD_LENGTH)
++            return None
+ 
+         existing = db.query(AdminUser).filter(AdminUser.email == email).first()
+         if existing:
+diff --git a/portwise-backend/tests/test_security.py b/portwise-backend/tests/test_security.py
+index 2ef0623..ba6ce01 100644
+--- a/portwise-backend/tests/test_security.py
++++ b/portwise-backend/tests/test_security.py
+@@ -39,6 +39,37 @@ def test_dev_admin_removed_once_a_real_admin_is_configured(client, monkeypatch):
+     assert emails == {"ops@portwise.ng"}
+ 
+ 
++def test_published_dev_password_is_refused_in_production(client, monkeypatch):
++    # The dev password is public. Using it as ADMIN_PASSWORD must not create or keep an admin.
++    monkeypatch.delenv("PORTWISE_DEV", raising=False)
++    monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
++    monkeypatch.setenv("ADMIN_PASSWORD", DEV_ADMIN_PASSWORD)
++    assert ensure_bootstrap_admin() is None
++    with SessionLocal() as db:
++        assert db.query(AdminUser).filter(AdminUser.email == "ops@portwise.ng").first() is None
++    reset_throttle()
++    assert _login(client, email="ops@portwise.ng").status_code == 401
++
++
++def test_admin_holding_the_published_password_is_removed_then_recovers_with_a_new_one(client, monkeypatch):
++    # Simulates the live site: an admin already exists with the public password, then ADMIN_PASSWORD is rotated.
++    monkeypatch.delenv("PORTWISE_DEV", raising=False)
++    monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
++    with SessionLocal() as db:
++        db.add(AdminUser(email="ops@portwise.ng", name="ops", password_hash=auth.hash_password(DEV_ADMIN_PASSWORD)))
++        db.commit()
++    monkeypatch.setenv("ADMIN_PASSWORD", DEV_ADMIN_PASSWORD)
++    ensure_bootstrap_admin()
++    reset_throttle()
++    assert _login(client, email="ops@portwise.ng").status_code == 401  # old password no longer works
++    monkeypatch.setenv("ADMIN_PASSWORD", "a-new-unique-passphrase-2026")
++    assert ensure_bootstrap_admin() == "ops@portwise.ng"
++    reset_throttle()
++    assert _login(client, email="ops@portwise.ng", password="a-new-unique-passphrase-2026").status_code == 200
++    reset_throttle()
++    assert _login(client, email="ops@portwise.ng").status_code == 401
++
++
+ def test_short_admin_password_is_refused(client, monkeypatch):
+     monkeypatch.setenv("ADMIN_EMAIL", "ops@portwise.ng")
+     monkeypatch.setenv("ADMIN_PASSWORD", "short")
+diff --git a/portwise-frontend/scripts/admin-walkthrough.mjs b/portwise-frontend/scripts/admin-walkthrough.mjs
+index 75d4e32..4b753db 100644
+--- a/portwise-frontend/scripts/admin-walkthrough.mjs
++++ b/portwise-frontend/scripts/admin-walkthrough.mjs
+@@ -1,12 +1,18 @@
+ // Drives the admin dashboard end to end against a running API and takes screenshots.
+ // It proves the demo moment: an admin adds a tariff and the calculator offers it.
+ // Usage: node scripts/admin-walkthrough.mjs [baseUrl] [email] [password]
++// The password is never defaulted. Pass it as the third argument or set ADMIN_PASSWORD, so this
++// script cannot be pointed at a live site with a password that is written in the repository.
+ import { chromium } from "@playwright/test";
+ import { mkdirSync } from "node:fs";
+ 
+ const base = process.argv[2] ?? "http://localhost:5173";
+ const email = process.argv[3] ?? "admin@portwise.local";
+-const password = process.argv[4] ?? "portwise-admin";
++const password = process.argv[4] ?? process.env.ADMIN_PASSWORD;
++if (!password) {
++  console.error("Missing admin password: pass it as the third argument or set ADMIN_PASSWORD.");
++  process.exit(1);
++}
+ const out = "screenshots";
+ mkdirSync(out, { recursive: true });
+ 
